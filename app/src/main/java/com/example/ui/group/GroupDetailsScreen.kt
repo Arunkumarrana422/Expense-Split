@@ -12,11 +12,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.ExpenseEntity
@@ -24,17 +26,12 @@ import com.example.data.local.GroupEntity
 import com.example.data.local.GroupMemberEntity
 import com.example.data.local.SettlementEntity
 import com.example.domain.calculator.ExpenseCalculator
+import com.example.util.FilterChipBar
+import com.example.util.TimeFilter
+import com.example.util.isTimestampInFilter
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-
-enum class TimeFilter(val label: String) {
-    ALL("All"),
-    DAILY("Daily (Today)"),
-    WEEKLY("Weekly (7 Days)"),
-    MONTHLY("Monthly (This Month)")
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,19 +100,50 @@ fun GroupDetailsScreen(
         ) {
             ScrollableTabRow(
                 selectedTabIndex = selectedTab,
-                edgePadding = 16.dp
+                edgePadding = 12.dp,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = MaterialTheme.colorScheme.primary,
+                divider = {},
+                indicator = { tabPositions ->
+                    if (selectedTab < tabPositions.size) {
+                        TabRowDefaults.SecondaryIndicator(
+                            modifier = Modifier
+                                .tabIndicatorOffset(tabPositions[selectedTab])
+                                .padding(horizontal = 8.dp)
+                                .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
+                            color = MaterialTheme.colorScheme.primary,
+                            height = 3.dp
+                        )
+                    }
+                }
             ) {
                 tabs.forEachIndexed { index, title ->
+                    val selected = selectedTab == index
                     Tab(
-                        selected = selectedTab == index,
+                        selected = selected,
                         onClick = { selectedTab = index },
-                        text = { Text(title, fontWeight = FontWeight.SemiBold) }
+                        modifier = Modifier
+                            .padding(vertical = 4.dp, horizontal = 2.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        text = {
+                            Text(
+                                text = title,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     )
                 }
             }
 
+            // Always ensure ADMIN members appear at the top of member lists
             val distinctMembers = remember(members) {
                 members.distinctBy { it.userId.ifBlank { it.membershipId } }
+                    .sortedWith(
+                        compareByDescending<GroupMemberEntity> {
+                            it.role.equals("ADMIN", ignoreCase = true) || it.role.equals("CREATOR", ignoreCase = true)
+                        }.thenBy { it.userName.lowercase() }
+                    )
             }
 
             when (selectedTab) {
@@ -276,51 +304,6 @@ fun GroupDetailsScreen(
 }
 
 @Composable
-fun FilterChipBar(
-    selectedFilter: TimeFilter,
-    onFilterSelected: (TimeFilter) -> Unit
-) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(horizontal = 4.dp)
-    ) {
-        items(TimeFilter.values()) { filter ->
-            FilterChip(
-                selected = selectedFilter == filter,
-                onClick = { onFilterSelected(filter) },
-                label = { Text(filter.label, fontSize = 13.sp) },
-                leadingIcon = if (selectedFilter == filter) {
-                    { Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                } else null
-            )
-        }
-    }
-}
-
-fun isTimestampInFilter(timestamp: Long, filter: TimeFilter): Boolean {
-    if (filter == TimeFilter.ALL) return true
-    val itemCal = Calendar.getInstance().apply { timeInMillis = timestamp }
-    val nowCal = Calendar.getInstance()
-
-    return when (filter) {
-        TimeFilter.ALL -> true
-        TimeFilter.DAILY -> {
-            itemCal.get(Calendar.YEAR) == nowCal.get(Calendar.YEAR) &&
-            itemCal.get(Calendar.DAY_OF_YEAR) == nowCal.get(Calendar.DAY_OF_YEAR)
-        }
-        TimeFilter.WEEKLY -> {
-            val diff = nowCal.timeInMillis - timestamp
-            diff in 0..(7 * 24 * 60 * 60 * 1000L)
-        }
-        TimeFilter.MONTHLY -> {
-            itemCal.get(Calendar.YEAR) == nowCal.get(Calendar.YEAR) &&
-            itemCal.get(Calendar.MONTH) == nowCal.get(Calendar.MONTH)
-        }
-    }
-}
-
-@Composable
 fun OverviewTab(
     group: GroupEntity?,
     expenses: List<ExpenseEntity>,
@@ -378,6 +361,7 @@ fun OverviewTab(
                 Card(
                     modifier = Modifier
                         .weight(1f)
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable { onNavigateToSettlements() },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -404,6 +388,7 @@ fun OverviewTab(
                 Card(
                     modifier = Modifier
                         .weight(1f)
+                        .clip(RoundedCornerShape(16.dp))
                         .clickable { onNavigateToBalances() },
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -560,21 +545,36 @@ fun ExpenseCardItem(expense: ExpenseEntity, onDelete: () -> Unit) {
 
 @Composable
 fun MembersTab(members: List<GroupMemberEntity>) {
+    val sortedMembers = remember(members) {
+        members.sortedWith(
+            compareByDescending<GroupMemberEntity> {
+                it.role.equals("ADMIN", ignoreCase = true) || it.role.equals("CREATOR", ignoreCase = true)
+            }.thenBy { it.userName.lowercase() }
+        )
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(members, key = { it.userId.ifBlank { it.membershipId } }) { member ->
+        items(sortedMembers, key = { it.userId.ifBlank { it.membershipId } }) { member ->
+            val isAdmin = member.role.equals("ADMIN", ignoreCase = true) || member.role.equals("CREATOR", ignoreCase = true)
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp)),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isAdmin) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                    else MaterialTheme.colorScheme.surface
+                ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    if (isAdmin) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                 )
             ) {
                 Row(
@@ -586,20 +586,66 @@ fun MembersTab(members: List<GroupMemberEntity>) {
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(44.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
+                                .background(
+                                    if (isAdmin) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.secondaryContainer
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = member.userName.take(1).uppercase(), fontWeight = FontWeight.Bold)
+                            Text(
+                                text = member.userName.take(1).uppercase(),
+                                fontWeight = FontWeight.Bold,
+                                color = if (isAdmin) MaterialTheme.colorScheme.onPrimary
+                                        else MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontSize = 16.sp
+                            )
                         }
-                        Column {
-                            Text(text = member.userName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Text(text = "Role: ${member.role}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = member.userName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (isAdmin) {
+                                    Icon(
+                                        imageVector = Icons.Default.AdminPanelSettings,
+                                        contentDescription = "Admin",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Role: ${if (isAdmin) "ADMIN" else member.role.uppercase()}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isAdmin) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (isAdmin) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                        }
+                    }
+
+                    if (isAdmin) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = "Admin",
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
                         }
                     }
                 }
@@ -1060,7 +1106,7 @@ fun SettlementsTab(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Search settlements by name, method, comments...") },
+                placeholder = { Text("Search settlements...", maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingIcon = {
                     Icon(imageVector = Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 },
@@ -1096,26 +1142,46 @@ fun SettlementsTab(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(18.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column {
-                        Text(
-                            text = "Total Settled History",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
-                        Text(
-                            text = "₹$totalSettledAmount",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
-                        )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Handshake,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = "Settled History (${selectedFilter.label})",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Text(
+                                text = "₹$totalSettledAmount",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
                     }
+
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
                     ) {
                         Text(
                             text = "${filteredSettlements.size} Completed",
