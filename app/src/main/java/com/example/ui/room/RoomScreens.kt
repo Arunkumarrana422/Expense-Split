@@ -28,6 +28,7 @@ fun CreateRoomScreen(
     var description by remember { mutableStateOf("") }
     var currency by remember { mutableStateOf("INR") }
     var maxMembersStr by remember { mutableStateOf("5") }
+    var isLoading by remember { mutableStateOf(false) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -102,6 +103,7 @@ fun CreateRoomScreen(
                     focusManager.clearFocus()
                     val max = maxMembersStr.toIntOrNull() ?: 5
                     if (roomName.isNotBlank()) {
+                        isLoading = true
                         onCreate(roomName, description, currency, max)
                     }
                 },
@@ -109,9 +111,18 @@ fun CreateRoomScreen(
                     .fillMaxWidth()
                     .height(54.dp),
                 shape = RoundedCornerShape(16.dp),
+                enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-                Text("Generate Room & Code", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Generate Room & Code", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
@@ -125,6 +136,7 @@ fun JoinRoomScreen(
     onBack: () -> Unit
 ) {
     var roomCode by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
     var currentError by remember(errorMessage) { mutableStateOf(errorMessage) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -201,6 +213,7 @@ fun JoinRoomScreen(
                         keyboardController?.hide()
                         focusManager.clearFocus()
                         if (roomCode.length >= 4) {
+                            isLoading = true
                             onJoin(roomCode)
                         } else {
                             currentError = "Please enter a valid room code"
@@ -210,9 +223,18 @@ fun JoinRoomScreen(
                         .fillMaxWidth()
                         .height(54.dp),
                     shape = RoundedCornerShape(16.dp),
+                    enabled = !isLoading,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("Join Room", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Join Room", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 

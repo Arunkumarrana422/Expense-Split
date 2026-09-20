@@ -142,7 +142,12 @@ fun LoginScreen(
                         onLogin(email.trim(), password) { result ->
                             isLoading = false
                             if (result.isFailure) {
-                                errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Login failed"
+                                val msg = result.exceptionOrNull()?.localizedMessage ?: ""
+                                errorMessage = when {
+                                    msg.contains("password", ignoreCase = true) || msg.contains("credential", ignoreCase = true) || msg.contains("auth", ignoreCase = true) || msg.contains("no user record", ignoreCase = true) || msg.contains("user-not-found", ignoreCase = true) || msg.contains("wrong-password", ignoreCase = true) -> "Incorrect email or password. Please check your credentials."
+                                    msg.contains("email", ignoreCase = true) -> "Invalid email address."
+                                    else -> "Login failed. Please check your details and try again."
+                                }
                             }
                         }
                     }
@@ -301,7 +306,12 @@ fun RegisterScreen(
                         onRegister(fullName.trim(), email.trim(), password) { result ->
                             isLoading = false
                             if (result.isFailure) {
-                                errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Registration failed"
+                                val msg = result.exceptionOrNull()?.localizedMessage ?: ""
+                                errorMessage = when {
+                                    msg.contains("already in use", ignoreCase = true) || msg.contains("email-already-in-use", ignoreCase = true) -> "This email is already registered. Please login instead."
+                                    msg.contains("password", ignoreCase = true) -> "Password should be at least 6 characters."
+                                    else -> "Registration failed. Please try again."
+                                }
                             }
                         }
                     }

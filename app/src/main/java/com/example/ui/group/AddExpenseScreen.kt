@@ -25,6 +25,7 @@ fun AddExpenseScreen(
     var category by remember { mutableStateOf("Food") }
     var splitMethod by remember { mutableStateOf("EQUAL") }
     var notes by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
     var categoryExpanded by remember { mutableStateOf(false) }
 
     val categories = listOf(
@@ -128,8 +129,9 @@ fun AddExpenseScreen(
 
             Button(
                 onClick = {
-                    val amt = (amountStr.toDoubleOrNull() ?: 0.0 * 100).toLong() * 100
+                    val amt = ((amountStr.toDoubleOrNull() ?: 0.0) * 100).toLong()
                     if (title.isNotBlank() && amt > 0) {
+                        isLoading = true
                         onSave(title, amt, "INR", category, splitMethod)
                     }
                 },
@@ -137,9 +139,18 @@ fun AddExpenseScreen(
                     .fillMaxWidth()
                     .height(54.dp),
                 shape = RoundedCornerShape(16.dp),
+                enabled = !isLoading,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-                Text("Save Expense", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Save Expense", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
