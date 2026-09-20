@@ -753,15 +753,9 @@ fun BalancesTab(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = if (simplifiedDebts.isEmpty()) MaterialTheme.colorScheme.surface
-                    else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                    containerColor = MaterialTheme.colorScheme.surface
                 ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    if (simplifiedDebts.isEmpty()) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
-                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-                )
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),

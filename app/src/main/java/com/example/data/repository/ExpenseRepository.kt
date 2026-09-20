@@ -753,22 +753,63 @@ class ExpenseRepository(private val context: Context) {
     }
 
     suspend fun requestDeleteGroup(groupId: String, groupName: String) {
-        val notifId = UUID.randomUUID().toString()
-        val notif = NotificationEntity(
-            id = notifId,
-            recipientUserId = "ALL",
-            senderUserId = currentUserId,
-            senderUserName = currentUserName,
-            groupId = groupId,
-            groupName = groupName,
-            title = "🗑️ Room Deletion Request",
-            message = "$currentUserName requested deletion of room '$groupName'. All members must approve before deletion.",
-            type = "WARNING",
-            timestamp = System.currentTimeMillis()
+        val existing = database.groupDao().getGroupById(groupId) ?: return
+        val updated = existing.copy(
+            isDeletionRequested = true,
+            deletionRequestedBy = currentUserId,
+            approvedDeletionUserIds = currentUserId
         )
-        database.notificationDao().insertNotification(notif)
+        database.groupDao().insertGroup(updated)
         try {
-            dbRef.child("notifications").child(notifId).setValue(notif).await()
+            dbRef.child("groups").child(groupId).setValue(updated).await()
+        } catch (e: Exception) {}
+    }
+
+    suspend fun approveGroupDeletion(groupId: String) {
+        val group = database.groupDao().getGroupById(groupId) ?: return
+        val approvedList = group.approvedDeletionUserIds.split(",").filter { it.isNotBlank() }.toMutableSet()
+        approvedList.add(currentUserId)
+        val updatedApproved = approvedList.joinToString(",")
+
+        val members = database.groupDao().getMembersForGroupList(groupId)
+        val allApproved = members.isEmpty() || approvedList.size >= members.size
+
+        if (allApproved) {
+            deleteGroupFully(groupId)
+        } else {
+            val updated = group.copy(approvedDeletionUserIds = updatedApproved)
+            database.groupDao().insertGroup(updated)
+            try {
+                dbRef.child("groups").child(groupId).setValue(updated).await()
+            } catch (e: Exception) {}
+        }
+    }
+
+    suspend fun rejectGroupDeletion(groupId: String) {
+        val group = database.groupDao().getGroupById(groupId) ?: return
+        val updated = group.copy(
+            isDeletionRequested = false,
+            deletionRequestedBy = "",
+            approvedDeletionUserIds = ""
+        )
+        database.groupDao().insertGroup(updated)
+        try {
+            dbRef.child("groups").child(groupId).setValue(updated).await()
+        } catch (e: Exception) {}
+    }
+
+    private suspend fun deleteGroupFully(groupId: String) {
+        database.groupDao().deleteMembersByGroupId(groupId)
+        val group = database.groupDao().getGroupById(groupId)
+        if (group != null) {
+            val deletedGroup = group.copy(status = "DELETED")
+            database.groupDao().insertGroup(deletedGroup)
+        }
+        try {
+            dbRef.child("groups").child(groupId).removeValue().await()
+            dbRef.child("group_members").child(groupId).removeValue().await()
+            dbRef.child("expenses").child(groupId).removeValue().await()
+            dbRef.child("settlements").child(groupId).removeValue().await()
         } catch (e: Exception) {}
     }
 }

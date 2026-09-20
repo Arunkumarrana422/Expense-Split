@@ -24,6 +24,9 @@ data class GroupEntity(
     val maximumMembers: Int = 10,
     val currentMemberCount: Int = 1,
     val status: String = "ACTIVE",
+    val isDeletionRequested: Boolean = false,
+    val deletionRequestedBy: String = "",
+    val approvedDeletionUserIds: String = "",
     val createdAt: Long = System.currentTimeMillis()
 )
 

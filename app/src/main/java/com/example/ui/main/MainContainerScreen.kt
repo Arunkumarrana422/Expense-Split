@@ -97,6 +97,34 @@ fun MainContainerScreen(
             }
         }
     ) { padding ->
+        val pendingDeletionGroup = groups.firstOrNull {
+            it.isDeletionRequested && it.deletionRequestedBy != viewModel.currentUserId && !it.approvedDeletionUserIds.split(",").contains(viewModel.currentUserId)
+        }
+
+        if (pendingDeletionGroup != null) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = {},
+                title = { Text("Room Deletion Approval") },
+                text = { Text("Admin has requested deletion of room '${pendingDeletionGroup.groupName}'. Do you approve this deletion?") },
+                confirmButton = {
+                    androidx.compose.material3.Button(
+                        onClick = { viewModel.approveGroupDeletion(pendingDeletionGroup.groupId) },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("Approve")
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.Button(
+                        onClick = { viewModel.rejectGroupDeletion(pendingDeletionGroup.groupId) },
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Reject")
+                    }
+                }
+            )
+        }
+
         HorizontalPager(
             state = pagerState,
             modifier = Modifier

@@ -55,6 +55,9 @@ interface GroupDao {
     @Query("SELECT * FROM group_members WHERE groupId = :groupId GROUP BY userId")
     fun getMembersForGroup(groupId: String): Flow<List<GroupMemberEntity>>
 
+    @Query("SELECT * FROM group_members WHERE groupId = :groupId GROUP BY userId")
+    suspend fun getMembersForGroupList(groupId: String): List<GroupMemberEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMember(member: GroupMemberEntity)
 

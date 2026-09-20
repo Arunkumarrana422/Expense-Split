@@ -292,4 +292,16 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             onComplete()
         }
     }
+
+    fun approveGroupDeletion(groupId: String) {
+        viewModelScope.launch {
+            repository.approveGroupDeletion(groupId)
+        }
+    }
+
+    fun rejectGroupDeletion(groupId: String) {
+        viewModelScope.launch {
+            repository.rejectGroupDeletion(groupId)
+        }
+    }
 }
