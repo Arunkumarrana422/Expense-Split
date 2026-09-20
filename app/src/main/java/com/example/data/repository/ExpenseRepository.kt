@@ -450,12 +450,14 @@ class ExpenseRepository(private val context: Context) {
 
         // Add creator as admin
         val membershipId = UUID.randomUUID().toString()
+        val currentProfileImg = prefs.getString("profile_photo", "") ?: ""
         val member = GroupMemberEntity(
             membershipId = membershipId,
             groupId = groupId,
             userId = currentUserId,
             userName = currentUserName,
-            role = "ADMIN"
+            role = "ADMIN",
+            profileImage = currentProfileImg
         )
         database.groupDao().insertMember(member)
 
@@ -504,12 +506,14 @@ class ExpenseRepository(private val context: Context) {
         }
 
         val membershipId = UUID.randomUUID().toString()
+        val currentProfileImg = prefs.getString("profile_photo", "") ?: ""
         val member = GroupMemberEntity(
             membershipId = membershipId,
             groupId = group.groupId,
             userId = currentUserId,
             userName = currentUserName,
-            role = "MEMBER"
+            role = "MEMBER",
+            profileImage = currentProfileImg
         )
         database.groupDao().insertMember(member)
 
