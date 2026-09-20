@@ -18,6 +18,7 @@ import com.example.ui.auth.SplashOnboardingScreen
 import com.example.ui.group.AddExpenseScreen
 import com.example.ui.group.GroupDetailsScreen
 import com.example.ui.home.HomeScreen
+import com.example.ui.main.MainContainerScreen
 import com.example.ui.notifications.NotificationsScreen
 import com.example.ui.personal.AddPersonalExpenseScreen
 import com.example.ui.personal.PersonalExpensesScreen
@@ -84,135 +85,69 @@ fun AppNavGraph(
         }
     }
 
-    val showBottomBar = currentRoute in listOf(
-        Screen.Home.route,
-        Screen.Personal.route,
-        Screen.Reports.route,
-        Screen.Profile.route
-    )
-
-    Scaffold(
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar {
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.Home.route,
-                        onClick = {
-                            if (currentRoute != Screen.Home.route) {
-                                navController.navigate(Screen.Home.route) {
-                                    popUpTo(Screen.Home.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        },
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                        label = { Text("Home") }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.Personal.route,
-                        onClick = {
-                            if (currentRoute != Screen.Personal.route) {
-                                navController.navigate(Screen.Personal.route) {
-                                    popUpTo(Screen.Home.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        },
-                        icon = { Icon(Icons.Default.Person, contentDescription = "Personal") },
-                        label = { Text("Personal") }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.Reports.route,
-                        onClick = {
-                            if (currentRoute != Screen.Reports.route) {
-                                navController.navigate(Screen.Reports.route) {
-                                    popUpTo(Screen.Home.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        },
-                        icon = { Icon(Icons.Default.BarChart, contentDescription = "Reports") },
-                        label = { Text("Reports") }
-                    )
-                    NavigationBarItem(
-                        selected = currentRoute == Screen.Profile.route,
-                        onClick = {
-                            if (currentRoute != Screen.Profile.route) {
-                                navController.navigate(Screen.Profile.route) {
-                                    popUpTo(Screen.Home.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        },
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Profile") },
-                        label = { Text("Profile") }
-                    )
-                }
-            }
+    val startDest = if (viewModel.isLoggedIn) Screen.Home.route else Screen.Splash.route
+    NavHost(
+        navController = navController,
+        startDestination = startDest,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        composable(Screen.Splash.route) {
+            SplashOnboardingScreen(
+                onGetStarted = { navController.navigate(Screen.Register.route) },
+                onLogin = { navController.navigate(Screen.Login.route) }
+            )
         }
-    ) { padding ->
-        val startDest = if (viewModel.isLoggedIn) Screen.Home.route else Screen.Splash.route
-        NavHost(
-            navController = navController,
-            startDestination = startDest,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            composable(Screen.Splash.route) {
-                SplashOnboardingScreen(
-                    onGetStarted = { navController.navigate(Screen.Register.route) },
-                    onLogin = { navController.navigate(Screen.Login.route) }
-                )
-            }
-            composable(Screen.Login.route) {
-                LoginScreen(
-                    onLogin = { email, password, callback ->
-                        viewModel.login(email, password) { result ->
-                            callback(result)
-                            if (result.isSuccess) {
-                                navController.navigate(Screen.Home.route) {
-                                    popUpTo(Screen.Splash.route) { inclusive = true }
-                                }
+        composable(Screen.Login.route) {
+            LoginScreen(
+                onLogin = { email, password, callback ->
+                    viewModel.login(email, password) { result ->
+                        callback(result)
+                        if (result.isSuccess) {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Splash.route) { inclusive = true }
                             }
                         }
-                    },
-                    onNavigateToRegister = { navController.navigate(Screen.Register.route) },
-                    onForgotPassword = {}
-                )
-            }
-            composable(Screen.Register.route) {
-                RegisterScreen(
-                    onRegister = { fullName, email, password, callback ->
-                        viewModel.register(fullName, email, password) { result ->
-                            callback(result)
-                            if (result.isSuccess) {
-                                navController.navigate(Screen.Home.route) {
-                                    popUpTo(Screen.Splash.route) { inclusive = true }
-                                }
+                    }
+                },
+                onNavigateToRegister = { navController.navigate(Screen.Register.route) },
+                onForgotPassword = {}
+            )
+        }
+        composable(Screen.Register.route) {
+            RegisterScreen(
+                onRegister = { fullName, email, password, callback ->
+                    viewModel.register(fullName, email, password) { result ->
+                        callback(result)
+                        if (result.isSuccess) {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Splash.route) { inclusive = true }
                             }
                         }
-                    },
-                    onBackToLogin = { navController.popBackStack() }
-                )
-            }
-            composable(Screen.Home.route) {
-                HomeScreen(
-                    userName = viewModel.currentUserName,
-                    groups = groups,
-                    isSyncing = isSyncing,
-                    onRefresh = { viewModel.refreshData() },
-                    onCreateRoom = { navController.navigate(Screen.CreateRoom.route) },
-                    onJoinRoom = { navController.navigate(Screen.JoinRoom.route) },
-                    onGroupClick = { groupId -> navController.navigate(Screen.GroupDetails.createRoute(groupId)) },
-                    onNotificationsClick = { navController.navigate(Screen.Notifications.route) },
-                    onSettingsClick = { navController.navigate(Screen.Profile.route) }
-                )
-            }
+                    }
+                },
+                onBackToLogin = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.Home.route) {
+            MainContainerScreen(
+                viewModel = viewModel,
+                groups = groups,
+                personalExpenses = personalExpenses,
+                themeMode = themeMode,
+                currency = currency,
+                isSyncing = isSyncing,
+                onNavigateToCreateRoom = { navController.navigate(Screen.CreateRoom.route) },
+                onNavigateToJoinRoom = { navController.navigate(Screen.JoinRoom.route) },
+                onNavigateToGroupDetails = { groupId -> navController.navigate(Screen.GroupDetails.createRoute(groupId)) },
+                onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
+                onNavigateToAddPersonalExpense = { navController.navigate(Screen.AddPersonalExpense.route) },
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
             composable(Screen.CreateRoom.route) {
                 CreateRoomScreen(
                     onCreate = { name, desc, currency, max ->
@@ -388,5 +323,4 @@ fun AppNavGraph(
                 SearchScreen(onBack = { navController.popBackStack() })
             }
         }
-    }
 }

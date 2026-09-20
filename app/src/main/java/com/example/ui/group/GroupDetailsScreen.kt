@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,6 +31,7 @@ import com.example.domain.calculator.ExpenseCalculator
 import com.example.util.FilterChipBar
 import com.example.util.TimeFilter
 import com.example.util.isTimestampInFilter
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -47,12 +50,12 @@ fun GroupDetailsScreen(
     onRefresh: () -> Unit = {},
     onBack: () -> Unit
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Overview", "Expenses", "Members", "Balances", "Activity", "Settlements")
+    val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
+    val coroutineScope = rememberCoroutineScope()
     var expenseToDelete by remember { mutableStateOf<ExpenseEntity?>(null) }
     var settlementToDelete by remember { mutableStateOf<SettlementEntity?>(null) }
     var isDeleting by remember { mutableStateOf(false) }
-
-    val tabs = listOf("Overview", "Expenses", "Members", "Balances", "Activity", "Settlements")
 
     Scaffold(
         topBar = {
@@ -77,7 +80,7 @@ fun GroupDetailsScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (selectedTab == 5) {
+                    if (pagerState.currentPage == 5) {
                         onAddSettlement(null, null, null)
                     } else {
                         onAddExpense()
@@ -87,8 +90,8 @@ fun GroupDetailsScreen(
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
                 Icon(
-                    imageVector = if (selectedTab == 5) Icons.Default.Handshake else Icons.Default.Add,
-                    contentDescription = if (selectedTab == 5) "Record Settlement" else "Add Expense"
+                    imageVector = if (pagerState.currentPage == 5) Icons.Default.Handshake else Icons.Default.Add,
+                    contentDescription = if (pagerState.currentPage == 5) "Record Settlement" else "Add Expense"
                 )
             }
         }
@@ -99,16 +102,16 @@ fun GroupDetailsScreen(
                 .padding(padding)
         ) {
             ScrollableTabRow(
-                selectedTabIndex = selectedTab,
+                selectedTabIndex = pagerState.currentPage,
                 edgePadding = 12.dp,
                 containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = MaterialTheme.colorScheme.primary,
                 divider = {},
                 indicator = { tabPositions ->
-                    if (selectedTab < tabPositions.size) {
+                    if (pagerState.currentPage < tabPositions.size) {
                         TabRowDefaults.SecondaryIndicator(
                             modifier = Modifier
-                                .tabIndicatorOffset(tabPositions[selectedTab])
+                                .tabIndicatorOffset(tabPositions[pagerState.currentPage])
                                 .padding(horizontal = 8.dp)
                                 .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp)),
                             color = MaterialTheme.colorScheme.primary,
@@ -118,10 +121,14 @@ fun GroupDetailsScreen(
                 }
             ) {
                 tabs.forEachIndexed { index, title ->
-                    val selected = selectedTab == index
+                    val selected = pagerState.currentPage == index
                     Tab(
                         selected = selected,
-                        onClick = { selectedTab = index },
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(index)
+                            }
+                        },
                         modifier = Modifier
                             .padding(vertical = 4.dp, horizontal = 2.dp)
                             .clip(RoundedCornerShape(12.dp)),
@@ -146,38 +153,49 @@ fun GroupDetailsScreen(
                     )
             }
 
-            when (selectedTab) {
-                0 -> OverviewTab(
-                    group = group,
-                    expenses = expenses,
-                    members = distinctMembers,
-                    settlements = settlements,
-                    onDelete = { expenseToDelete = it },
-                    onNavigateToSettlements = { selectedTab = 5 },
-                    onNavigateToBalances = { selectedTab = 3 }
-                )
-                1 -> ExpensesTab(
-                    expenses = expenses,
-                    onDelete = { expenseToDelete = it }
-                )
-                2 -> MembersTab(distinctMembers)
-                3 -> BalancesTab(
-                    expenses = expenses,
-                    members = distinctMembers,
-                    settlements = settlements,
-                    onSettleUp = { pId, rId, amt ->
-                        onAddSettlement(pId, rId, amt)
-                    }
-                )
-                4 -> ActivityTab(
-                    expenses = expenses,
-                    settlements = settlements
-                )
-                5 -> SettlementsTab(
-                    settlements = settlements,
-                    onDeleteSettlement = { settlementToDelete = it },
-                    onRecordSettlement = { onAddSettlement(null, null, null) }
-                )
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+            ) { page ->
+                when (page) {
+                    0 -> OverviewTab(
+                        group = group,
+                        expenses = expenses,
+                        members = distinctMembers,
+                        settlements = settlements,
+                        onDelete = { expenseToDelete = it },
+                        onNavigateToSettlements = {
+                            coroutineScope.launch { pagerState.animateScrollToPage(5) }
+                        },
+                        onNavigateToBalances = {
+                            coroutineScope.launch { pagerState.animateScrollToPage(3) }
+                        }
+                    )
+                    1 -> ExpensesTab(
+                        expenses = expenses,
+                        onDelete = { expenseToDelete = it }
+                    )
+                    2 -> MembersTab(distinctMembers)
+                    3 -> BalancesTab(
+                        expenses = expenses,
+                        members = distinctMembers,
+                        settlements = settlements,
+                        onSettleUp = { pId, rId, amt ->
+                            onAddSettlement(pId, rId, amt)
+                        }
+                    )
+                    4 -> ActivityTab(
+                        expenses = expenses,
+                        settlements = settlements
+                    )
+                    5 -> SettlementsTab(
+                        settlements = settlements,
+                        onDeleteSettlement = { settlementToDelete = it },
+                        onRecordSettlement = { onAddSettlement(null, null, null) }
+                    )
+                }
             }
         }
     }
