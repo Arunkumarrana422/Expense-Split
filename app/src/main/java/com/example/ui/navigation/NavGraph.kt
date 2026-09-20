@@ -23,6 +23,7 @@ import com.example.ui.notifications.NotificationsScreen
 import com.example.ui.personal.AddPersonalExpenseScreen
 import com.example.ui.personal.PersonalExpensesScreen
 import com.example.ui.profile.ProfileScreen
+import com.example.ui.profile.ChangePasswordScreen
 import com.example.ui.reports.ReportsScreen
 import com.example.ui.room.CreateRoomScreen
 import com.example.ui.room.JoinRoomScreen
@@ -61,6 +62,7 @@ sealed class Screen(val route: String) {
     object Reports : Screen("reports")
     object Notifications : Screen("notifications")
     object Profile : Screen("profile")
+    object ChangePassword : Screen("change_password")
     object Search : Screen("search")
 }
 
@@ -145,7 +147,8 @@ fun AppNavGraph(
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
-                }
+                },
+                onNavigateToChangePassword = { navController.navigate(Screen.ChangePassword.route) }
             )
         }
             composable(Screen.CreateRoom.route) {
@@ -318,6 +321,14 @@ fun AppNavGraph(
                         navController.navigate(Screen.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
+                    }
+                )
+            }
+            composable(Screen.ChangePassword.route) {
+                ChangePasswordScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onChangePassword = { oldPass, newPass, cb ->
+                        viewModel.updatePassword(oldPass, newPass, cb)
                     }
                 )
             }

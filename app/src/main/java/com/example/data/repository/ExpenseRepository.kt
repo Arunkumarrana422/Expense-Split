@@ -38,6 +38,7 @@ class ExpenseRepository(private val context: Context) {
     private val prefs = context.getSharedPreferences("expense_auth_prefs", Context.MODE_PRIVATE)
 
     val profilePhotoFlow = kotlinx.coroutines.flow.MutableStateFlow(prefs.getString("profile_photo", "") ?: "")
+    val userNameFlow = kotlinx.coroutines.flow.MutableStateFlow("")
 
     suspend fun updateProfilePhoto(base64Str: String) {
         prefs.edit().putString("profile_photo", base64Str).apply()
@@ -108,6 +109,8 @@ class ExpenseRepository(private val context: Context) {
         try {
             if (getAuth().currentUser == null) {
                 prefs.edit().clear().apply()
+            } else {
+                userNameFlow.value = currentUserName
             }
         } catch (e: Exception) {
             prefs.edit().clear().apply()
@@ -157,6 +160,7 @@ class ExpenseRepository(private val context: Context) {
                 } catch (e: Exception) {
                     // Non-fatal
                 }
+                userNameFlow.value = currentUserName
                 syncDataFromFirebase(uid)
             }
             Result.success(Unit)
@@ -189,6 +193,7 @@ class ExpenseRepository(private val context: Context) {
                 } catch (e: Exception) {
                     // Non-fatal
                 }
+                userNameFlow.value = fullName
                 syncDataFromFirebase(uid)
             }
             Result.success(Unit)
@@ -203,6 +208,7 @@ class ExpenseRepository(private val context: Context) {
         } catch (e: Exception) {}
         prefs.edit().clear().apply()
         profilePhotoFlow.value = ""
+        userNameFlow.value = ""
     }
 
     suspend fun updateProfile(newName: String): Result<Unit> {
@@ -212,9 +218,23 @@ class ExpenseRepository(private val context: Context) {
                 .setDisplayName(newName)
                 .build()
             user.updateProfile(profileUpdates).await()
+            userNameFlow.value = newName
             try {
                 dbRef.child("users").child(user.uid).child("fullName").setValue(newName).await()
             } catch (e: Exception) {}
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updatePassword(oldPassword: String, newPassword: String): Result<Unit> {
+        return try {
+            val user = getAuth().currentUser ?: return Result.failure(Exception("User not logged in"))
+            val email = user.email ?: return Result.failure(Exception("User email not found"))
+            val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(email, oldPassword)
+            user.reauthenticate(credential).await()
+            user.updatePassword(newPassword).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

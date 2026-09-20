@@ -46,13 +46,15 @@ fun MainContainerScreen(
     onNavigateToGroupDetails: (String) -> Unit,
     onNavigateToNotifications: () -> Unit,
     onNavigateToAddPersonalExpense: () -> Unit,
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    onNavigateToChangePassword: () -> Unit
 ) {
     val pagerState = rememberPagerState(initialPage = 0) { 4 }
     val coroutineScope = rememberCoroutineScope()
 
     val allGroupExpenses by viewModel.allGroupExpenses.collectAsStateWithLifecycle()
     val profilePhoto by viewModel.profilePhoto.collectAsStateWithLifecycle()
+    val currentUserName by viewModel.userName.collectAsStateWithLifecycle()
 
     var backPressedTime by remember { mutableStateOf(0L) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -148,7 +150,7 @@ fun MainContainerScreen(
         ) { page ->
             when (page) {
                 0 -> HomeScreen(
-                    userName = viewModel.currentUserName,
+                    userName = currentUserName,
                     currentUserId = viewModel.currentUserId,
                     groups = groups,
                     isSyncing = isSyncing,
@@ -180,7 +182,7 @@ fun MainContainerScreen(
                     personalExpenses = personalExpenses
                 )
                 3 -> ProfileScreen(
-                    userName = viewModel.currentUserName,
+                    userName = currentUserName,
                     userEmail = viewModel.currentUserEmail,
                     currentTheme = themeMode,
                     currentCurrency = currency,
@@ -197,6 +199,7 @@ fun MainContainerScreen(
                     onUpdateProfilePhoto = { newBase64 ->
                         viewModel.updateProfilePhoto(newBase64)
                     },
+                    onChangePasswordClick = onNavigateToChangePassword,
                     onLogout = {
                         viewModel.logout()
                         onNavigateToLogin()

@@ -34,6 +34,7 @@ fun ProfileScreen(
     onCurrencyChange: (String) -> Unit,
     onUpdateProfile: (String, (Result<Unit>) -> Unit) -> Unit,
     onUpdateProfilePhoto: (String) -> Unit = {},
+    onChangePasswordClick: () -> Unit = {},
     onLogout: () -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
@@ -166,22 +167,34 @@ fun ProfileScreen(
                         subtitle = currentTheme,
                         onClick = { showThemeDialog = true }
                     )
+                    SettingRow(
+                        icon = Icons.Default.Lock,
+                        title = "Change Password",
+                        subtitle = "Update account password",
+                        onClick = onChangePasswordClick
+                    )
                 }
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            Button(
+            OutlinedButton(
                 onClick = { showLogoutDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    .height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                ),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.error
+                )
             ) {
-                Icon(imageVector = Icons.Default.Logout, contentDescription = null)
+                Icon(imageVector = Icons.Default.Logout, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Logout", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text("Logout", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
             }
         }
     }

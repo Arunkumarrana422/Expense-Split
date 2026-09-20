@@ -102,9 +102,17 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun updatePassword(oldPassword: String, newPassword: String, onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val res = repository.updatePassword(oldPassword, newPassword)
+            onResult(res)
+        }
+    }
+
     val currentUserId: String get() = repository.currentUserId
     val currentUserEmail: String get() = repository.currentUserEmail
     val currentUserName: String get() = repository.currentUserName
+    val userName: StateFlow<String> = repository.userNameFlow.asStateFlow()
     val isLoggedIn: Boolean get() = repository.isLoggedIn
 
     private val _allGroups = MutableStateFlow<List<GroupEntity>>(emptyList())
