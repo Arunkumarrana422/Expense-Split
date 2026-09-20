@@ -13,9 +13,12 @@ import com.example.util.NotificationHelper
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.DocumentChange
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.database.ChildEventListener
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.ValueEventListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -60,14 +63,17 @@ class ExpenseRepository(private val context: Context) {
         }
     }
 
-    private fun getFirestore(): FirebaseFirestore {
+    private fun getDatabase(): FirebaseDatabase {
+        val app = ensureFirebase()
         return try {
-            FirebaseFirestore.getInstance()
+            FirebaseDatabase.getInstance(app, "https://student-patnar-default-rtdb.firebaseio.com")
         } catch (e: Exception) {
-            val app = ensureFirebase()
-            FirebaseFirestore.getInstance(app)
+            FirebaseDatabase.getInstance(app)
         }
     }
+
+    private val dbRef: DatabaseReference
+        get() = getDatabase().reference
 
     init {
         try {
@@ -75,7 +81,6 @@ class ExpenseRepository(private val context: Context) {
         } catch (e: Exception) {
             // Already initialized
         }
-        // If not logged in via Firebase Auth, ensure local prefs are completely clean
         try {
             if (getAuth().currentUser == null) {
                 prefs.edit().clear().apply()
@@ -112,10 +117,9 @@ class ExpenseRepository(private val context: Context) {
             authInstance.signInWithEmailAndPassword(email, password).await()
             val uid = authInstance.currentUser?.uid
             if (uid != null) {
-                // Try fetching user name from Firestore if display name is empty
                 try {
-                    val userDoc = getFirestore().collection("users").document(uid).get().await()
-                    val savedName = userDoc.getString("fullName")
+                    val userSnap = dbRef.child("users").child(uid).get().await()
+                    val savedName = userSnap.child("fullName").getValue(String::class.java)
                     if (!savedName.isNullOrBlank() && authInstance.currentUser?.displayName.isNullOrBlank()) {
                         val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                             .setDisplayName(savedName)
@@ -125,7 +129,7 @@ class ExpenseRepository(private val context: Context) {
                 } catch (e: Exception) {
                     // Non-fatal
                 }
-                syncDataFromFirestore(uid)
+                syncDataFromFirebase(uid)
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -152,11 +156,11 @@ class ExpenseRepository(private val context: Context) {
                     "createdAt" to System.currentTimeMillis()
                 )
                 try {
-                    getFirestore().collection("users").document(uid).set(userData).await()
+                    dbRef.child("users").child(uid).setValue(userData).await()
                 } catch (e: Exception) {
                     // Non-fatal
                 }
-                syncDataFromFirestore(uid)
+                syncDataFromFirebase(uid)
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -179,7 +183,7 @@ class ExpenseRepository(private val context: Context) {
                 .build()
             user.updateProfile(profileUpdates).await()
             try {
-                getFirestore().collection("users").document(user.uid).update("fullName", newName).await()
+                dbRef.child("users").child(user.uid).child("fullName").setValue(newName).await()
             } catch (e: Exception) {}
             Result.success(Unit)
         } catch (e: Exception) {
@@ -187,88 +191,84 @@ class ExpenseRepository(private val context: Context) {
         }
     }
 
-    suspend fun syncDataFromFirestore(userId: String) {
+    /**
+     * Comprehensive synchronization from Firebase Realtime Database to local Room DB
+     */
+    suspend fun syncDataFromFirebase(userId: String) {
         if (userId.isBlank()) return
         try {
-            val fs = getFirestore()
-            val userEmail = currentUserEmail.trim().lowercase()
+            val ref = dbRef
 
-            // 1. Fetch group memberships for this user
+            // 1. Fetch user's registered groups from user_groups node
             val groupIdsToSync = mutableSetOf<String>()
 
-            // Search by userId in groupMembers
             try {
-                val memberQuery = fs.collection("groupMembers")
-                    .whereEqualTo("userId", userId)
-                    .get()
-                    .await()
-                for (memberDoc in memberQuery.documents) {
-                    val member = memberDoc.toObject(GroupMemberEntity::class.java)
-                    if (member != null && member.groupId.isNotBlank()) {
-                        database.groupDao().insertMember(member)
-                        groupIdsToSync.add(member.groupId)
+                val userGroupsSnap = ref.child("user_groups").child(userId).get().await()
+                for (child in userGroupsSnap.children) {
+                    val gId = child.key
+                    if (!gId.isNullOrBlank()) {
+                        groupIdsToSync.add(gId)
                     }
                 }
             } catch (e: Exception) {}
 
-            // Also search groups created by this user
+            // Also check all groups where createdBy == userId as fallback
             try {
-                val createdGroupsQuery = fs.collection("groups")
-                    .whereEqualTo("createdBy", userId)
-                    .get()
-                    .await()
-                for (groupDoc in createdGroupsQuery.documents) {
-                    val group = groupDoc.toObject(GroupEntity::class.java)
-                    if (group != null && group.groupId.isNotBlank()) {
+                val allGroupsSnap = ref.child("groups").get().await()
+                for (gDoc in allGroupsSnap.children) {
+                    val group = gDoc.getValue(GroupEntity::class.java)
+                    if (group != null && (group.createdBy == userId || groupIdsToSync.contains(group.groupId))) {
                         database.groupDao().insertGroup(group)
                         groupIdsToSync.add(group.groupId)
+                        // Make sure user_groups mapping is saved
+                        ref.child("user_groups").child(userId).child(group.groupId).setValue(true)
                     }
                 }
             } catch (e: Exception) {}
 
-            // For all found groups, sync their full group info, members, expenses & settlements
+            // For all found groups, sync group details, members, expenses, settlements
             for (groupId in groupIdsToSync) {
                 try {
-                    val groupDoc = fs.collection("groups").document(groupId).get().await()
-                    val group = groupDoc.toObject(GroupEntity::class.java)
+                    // Sync Group Info
+                    val groupSnap = ref.child("groups").child(groupId).get().await()
+                    val group = groupSnap.getValue(GroupEntity::class.java)
                     if (group != null) {
                         database.groupDao().insertGroup(group)
                     }
 
-                    // Sync all members of this group
-                    val allMembersQuery = fs.collection("groupMembers")
-                        .whereEqualTo("groupId", groupId)
-                        .get()
-                        .await()
-                    if (!allMembersQuery.isEmpty) {
-                        database.groupDao().deleteMembersByGroupId(groupId)
+                    // Sync Members
+                    val membersSnap = ref.child("group_members").child(groupId).get().await()
+                    val memberList = mutableListOf<GroupMemberEntity>()
+                    for (mChild in membersSnap.children) {
+                        val member = mChild.getValue(GroupMemberEntity::class.java)
+                        if (member != null) {
+                            memberList.add(member)
+                        }
                     }
-                    for (mDoc in allMembersQuery.documents) {
-                        val m = mDoc.toObject(GroupMemberEntity::class.java)
-                        if (m != null) {
+                    if (memberList.isNotEmpty()) {
+                        database.groupDao().deleteMembersByGroupId(groupId)
+                        for (m in memberList) {
                             database.groupDao().insertMember(m)
+                            // If this user is a member, ensure mapping is recorded
+                            if (m.userId == userId) {
+                                ref.child("user_groups").child(userId).child(groupId).setValue(true)
+                            }
                         }
                     }
 
-                    // Sync all expenses of this group
-                    val expenseQuery = fs.collection("expenses")
-                        .whereEqualTo("groupId", groupId)
-                        .get()
-                        .await()
-                    for (expDoc in expenseQuery.documents) {
-                        val exp = expDoc.toObject(ExpenseEntity::class.java)
+                    // Sync Expenses
+                    val expensesSnap = ref.child("group_expenses").child(groupId).get().await()
+                    for (eChild in expensesSnap.children) {
+                        val exp = eChild.getValue(ExpenseEntity::class.java)
                         if (exp != null) {
                             database.expenseDao().insertExpense(exp)
                         }
                     }
 
-                    // Sync all settlements of this group
-                    val settlementQuery = fs.collection("settlements")
-                        .whereEqualTo("groupId", groupId)
-                        .get()
-                        .await()
-                    for (setDoc in settlementQuery.documents) {
-                        val set = setDoc.toObject(SettlementEntity::class.java)
+                    // Sync Settlements
+                    val settlementsSnap = ref.child("group_settlements").child(groupId).get().await()
+                    for (sChild in settlementsSnap.children) {
+                        val set = sChild.getValue(SettlementEntity::class.java)
                         if (set != null) {
                             database.settlementDao().insertSettlement(set)
                         }
@@ -276,69 +276,72 @@ class ExpenseRepository(private val context: Context) {
                 } catch (e: Exception) {}
             }
 
-            // 2. Sync personal expenses for this user
+            // 2. Sync Personal Expenses for this user
             try {
-                val personalQuery = fs.collection("personalExpenses")
-                    .whereEqualTo("userId", userId)
-                    .get()
-                    .await()
-                for (doc in personalQuery.documents) {
-                    val personal = doc.toObject(PersonalExpenseEntity::class.java)
+                val personalSnap = ref.child("personal_expenses").child(userId).get().await()
+                for (pChild in personalSnap.children) {
+                    val personal = pChild.getValue(PersonalExpenseEntity::class.java)
                     if (personal != null) {
                         database.personalExpenseDao().insertPersonalExpense(personal)
                     }
                 }
             } catch (e: Exception) {}
 
-            // 3. Sync notifications for this user
+            // 3. Sync Notifications
             try {
-                val notifQuery = fs.collection("notifications")
-                    .whereIn("recipientUserId", listOf(userId, "ALL", ""))
-                    .get()
-                    .await()
-                for (doc in notifQuery.documents) {
-                    val notif = doc.toObject(NotificationEntity::class.java)
-                    if (notif != null) {
+                val notifsSnap = ref.child("notifications").get().await()
+                for (nChild in notifsSnap.children) {
+                    val notif = nChild.getValue(NotificationEntity::class.java)
+                    if (notif != null && (notif.recipientUserId == userId || notif.recipientUserId == "ALL" || notif.recipientUserId.isBlank())) {
                         database.notificationDao().insertNotification(notif)
                     }
                 }
             } catch (e: Exception) {}
+
         } catch (e: Exception) {
             // Non-fatal sync error
         }
     }
 
-    private var notificationListener: ListenerRegistration? = null
+    // Alias for backward compatibility if called elsewhere
+    suspend fun syncDataFromFirestore(userId: String) = syncDataFromFirebase(userId)
+
+    private var activeNotificationListener: ChildEventListener? = null
+    private var activeGroupListeners = mutableMapOf<String, ValueEventListener>()
 
     fun startNotificationListener(userId: String) {
-        notificationListener?.remove()
         if (userId.isBlank()) return
         try {
-            val fs = getFirestore()
-            notificationListener = fs.collection("notifications")
-                .whereIn("recipientUserId", listOf(userId, "ALL", ""))
-                .addSnapshotListener { snapshot, error ->
-                    if (error != null || snapshot == null) return@addSnapshotListener
-                    for (change in snapshot.documentChanges) {
-                        if (change.type == DocumentChange.Type.ADDED) {
-                            val notif = change.document.toObject(NotificationEntity::class.java)
-                            CoroutineScope(Dispatchers.IO).launch {
-                                database.notificationDao().insertNotification(notif)
-                            }
-                            // If generated by another user and recent, alert the device immediately
-                            val isOtherSender = notif.senderUserId.isNotBlank() && notif.senderUserId != currentUserId
-                            val isRecent = (System.currentTimeMillis() - notif.timestamp) < 300_000 // 5 minutes
-                            if (isOtherSender && isRecent) {
-                                NotificationHelper.showDeviceNotification(
-                                    context = context,
-                                    title = notif.title,
-                                    message = notif.message,
-                                    isWarning = notif.type == "WARNING"
-                                )
-                            }
+            activeNotificationListener?.let { dbRef.child("notifications").removeEventListener(it) }
+
+            val listener = object : ChildEventListener {
+                override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
+                    val notif = snapshot.getValue(NotificationEntity::class.java) ?: return
+                    if (notif.recipientUserId == userId || notif.recipientUserId == "ALL" || notif.recipientUserId.isBlank()) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            database.notificationDao().insertNotification(notif)
+                        }
+                        val isOtherSender = notif.senderUserId.isNotBlank() && notif.senderUserId != currentUserId
+                        val isRecent = (System.currentTimeMillis() - notif.timestamp) < 300_000 // 5 minutes
+                        if (isOtherSender && isRecent) {
+                            NotificationHelper.showDeviceNotification(
+                                context = context,
+                                title = notif.title,
+                                message = notif.message,
+                                isWarning = notif.type == "WARNING"
+                            )
                         }
                     }
                 }
+
+                override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {}
+                override fun onChildRemoved(snapshot: DataSnapshot) {}
+                override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
+                override fun onCancelled(error: DatabaseError) {}
+            }
+
+            activeNotificationListener = listener
+            dbRef.child("notifications").addChildEventListener(listener)
         } catch (e: Exception) {
             // Non-fatal
         }
@@ -395,9 +398,11 @@ class ExpenseRepository(private val context: Context) {
         database.groupDao().insertMember(member)
 
         try {
-            val fs = getFirestore()
-            fs.collection("groups").document(groupId).set(group).await()
-            fs.collection("groupMembers").document(membershipId).set(member).await()
+            val ref = dbRef
+            ref.child("groups").child(groupId).setValue(group).await()
+            ref.child("group_members").child(groupId).child(membershipId).setValue(member).await()
+            ref.child("user_groups").child(currentUserId).child(groupId).setValue(true).await()
+            ref.child("room_codes").child(roomCode).setValue(groupId).await()
         } catch (e: Exception) {
             // Offline fallback
         }
@@ -405,18 +410,32 @@ class ExpenseRepository(private val context: Context) {
     }
 
     suspend fun joinGroup(roomCode: String): Result<String> {
-        val group = database.groupDao().getGroupByRoomCode(roomCode)
+        val ref = dbRef
+        val group: GroupEntity = database.groupDao().getGroupByRoomCode(roomCode)
             ?: try {
-                val fs = getFirestore()
-                val query = fs.collection("groups").whereEqualTo("roomCode", roomCode).get().await()
-                if (query.isEmpty) return Result.failure(Exception("Room not found with code: $roomCode"))
-                val doc = query.documents[0]
-                val g = doc.toObject(GroupEntity::class.java) ?: return Result.failure(Exception("Invalid room data"))
-                database.groupDao().insertGroup(g)
-                g
+                val codeSnap = ref.child("room_codes").child(roomCode).get().await()
+                val targetGroupId = codeSnap.getValue(String::class.java)
+                if (targetGroupId.isNullOrBlank()) {
+                    // Try looking in groups table directly
+                    val allGroupsSnap = ref.child("groups").get().await()
+                    var foundGroup: GroupEntity? = null
+                    for (gChild in allGroupsSnap.children) {
+                        val g = gChild.getValue(GroupEntity::class.java)
+                        if (g != null && g.roomCode == roomCode) {
+                            foundGroup = g
+                            break
+                        }
+                    }
+                    foundGroup ?: return Result.failure(Exception("Room not found with code: $roomCode"))
+                } else {
+                    val groupSnap = ref.child("groups").child(targetGroupId).get().await()
+                    groupSnap.getValue(GroupEntity::class.java) ?: return Result.failure(Exception("Invalid room data"))
+                }
             } catch (e: Exception) {
                 return Result.failure(Exception("Failed to find room: ${e.message}"))
             }
+
+        database.groupDao().insertGroup(group)
 
         if (group.currentMemberCount >= group.maximumMembers) {
             return Result.failure(Exception("Room is full (Max: ${group.maximumMembers} members)"))
@@ -437,9 +456,26 @@ class ExpenseRepository(private val context: Context) {
         database.groupDao().insertGroup(updatedGroup)
 
         try {
-            val fs = getFirestore()
-            fs.collection("groups").document(group.groupId).set(updatedGroup).await()
-            fs.collection("groupMembers").document(membershipId).set(member).await()
+            ref.child("groups").child(group.groupId).setValue(updatedGroup).await()
+            ref.child("group_members").child(group.groupId).child(membershipId).setValue(member).await()
+            ref.child("user_groups").child(currentUserId).child(group.groupId).setValue(true).await()
+
+            // Fetch and sync all existing expenses & members of this joined group
+            val expensesSnap = ref.child("group_expenses").child(group.groupId).get().await()
+            for (eChild in expensesSnap.children) {
+                val exp = eChild.getValue(ExpenseEntity::class.java)
+                if (exp != null) {
+                    database.expenseDao().insertExpense(exp)
+                }
+            }
+
+            val membersSnap = ref.child("group_members").child(group.groupId).get().await()
+            for (mChild in membersSnap.children) {
+                val m = mChild.getValue(GroupMemberEntity::class.java)
+                if (m != null) {
+                    database.groupDao().insertMember(m)
+                }
+            }
         } catch (e: Exception) {
             // Offline fallback
         }
@@ -476,7 +512,7 @@ class ExpenseRepository(private val context: Context) {
         )
         database.expenseDao().insertExpense(expense)
         try {
-            getFirestore().collection("expenses").document(expenseId).set(expense).await()
+            dbRef.child("group_expenses").child(groupId).child(expenseId).setValue(expense).await()
         } catch (e: Exception) {
             // Offline
         }
@@ -504,7 +540,7 @@ class ExpenseRepository(private val context: Context) {
         )
         database.notificationDao().insertNotification(notif)
         try {
-            getFirestore().collection("notifications").document(notifId).set(notif).await()
+            dbRef.child("notifications").child(notifId).setValue(notif).await()
         } catch (e: Exception) {}
 
         // Trigger mobile phone system notification
@@ -519,7 +555,7 @@ class ExpenseRepository(private val context: Context) {
     suspend fun deleteExpense(expense: ExpenseEntity, groupName: String = "") {
         database.expenseDao().deleteExpense(expense.expenseId)
         try {
-            getFirestore().collection("expenses").document(expense.expenseId).delete().await()
+            dbRef.child("group_expenses").child(expense.groupId).child(expense.expenseId).removeValue().await()
         } catch (e: Exception) {}
 
         val notifId = UUID.randomUUID().toString()
@@ -533,10 +569,9 @@ class ExpenseRepository(private val context: Context) {
         val isOtherUserExpense = expense.paidByUserId.isNotBlank() && expense.paidByUserId != currentUserId
 
         if (isOtherUserExpense) {
-            // WARNING notification personally addressed ONLY to the person whose expense was deleted!
             val warningNotif = NotificationEntity(
                 id = notifId,
-                recipientUserId = expense.paidByUserId, // Strictly visible to the user whose expense was deleted!
+                recipientUserId = expense.paidByUserId,
                 senderUserId = currentUserId,
                 senderUserName = deleter,
                 groupId = expense.groupId,
@@ -550,7 +585,7 @@ class ExpenseRepository(private val context: Context) {
             )
             database.notificationDao().insertNotification(warningNotif)
             try {
-                getFirestore().collection("notifications").document(notifId).set(warningNotif).await()
+                dbRef.child("notifications").child(notifId).setValue(warningNotif).await()
             } catch (e: Exception) {}
         } else {
             val selfNotif = NotificationEntity(
@@ -569,16 +604,13 @@ class ExpenseRepository(private val context: Context) {
             )
             database.notificationDao().insertNotification(selfNotif)
             try {
-                getFirestore().collection("notifications").document(notifId).set(selfNotif).await()
+                dbRef.child("notifications").child(notifId).setValue(selfNotif).await()
             } catch (e: Exception) {}
         }
     }
 
     suspend fun deleteExpense(expenseId: String) {
         database.expenseDao().deleteExpense(expenseId)
-        try {
-            getFirestore().collection("expenses").document(expenseId).delete().await()
-        } catch (e: Exception) {}
     }
 
     fun getNotificationsForUser(userId: String): Flow<List<NotificationEntity>> {
@@ -619,7 +651,7 @@ class ExpenseRepository(private val context: Context) {
         )
         database.settlementDao().insertSettlement(settlement)
         try {
-            getFirestore().collection("settlements").document(settlementId).set(settlement).await()
+            dbRef.child("group_settlements").child(groupId).child(settlementId).setValue(settlement).await()
         } catch (e: Exception) {}
     }
 
@@ -639,14 +671,14 @@ class ExpenseRepository(private val context: Context) {
         )
         database.personalExpenseDao().insertPersonalExpense(expense)
         try {
-            getFirestore().collection("personalExpenses").document(id).set(expense).await()
+            dbRef.child("personal_expenses").child(currentUserId).child(id).setValue(expense).await()
         } catch (e: Exception) {}
     }
 
     suspend fun deletePersonalExpense(id: String) {
         database.personalExpenseDao().deletePersonalExpense(id)
         try {
-            getFirestore().collection("personalExpenses").document(id).delete().await()
+            dbRef.child("personal_expenses").child(currentUserId).child(id).removeValue().await()
         } catch (e: Exception) {}
     }
 }

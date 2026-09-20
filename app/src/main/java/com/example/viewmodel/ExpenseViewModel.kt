@@ -47,7 +47,7 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
                 // Fully await synchronization so all previous groups, expenses & data are loaded
                 val uid = repository.currentUserId
                 if (uid.isNotBlank()) {
-                    repository.syncDataFromFirestore(uid)
+                    repository.syncDataFromFirebase(uid)
                 }
                 loadUserData()
             }
@@ -63,7 +63,7 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             if (res.isSuccess) {
                 val uid = repository.currentUserId
                 if (uid.isNotBlank()) {
-                    repository.syncDataFromFirestore(uid)
+                    repository.syncDataFromFirebase(uid)
                 }
                 loadUserData()
             }
@@ -77,7 +77,7 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         if (uid.isNotBlank()) {
             viewModelScope.launch {
                 _isSyncing.value = true
-                repository.syncDataFromFirestore(uid)
+                repository.syncDataFromFirebase(uid)
                 _isSyncing.value = false
                 onComplete?.invoke()
             }
@@ -132,7 +132,7 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         val userId = repository.currentUserId
         if (userId.isNotBlank()) {
             viewModelScope.launch {
-                repository.syncDataFromFirestore(userId)
+                repository.syncDataFromFirebase(userId)
             }
             repository.startNotificationListener(userId)
         }
