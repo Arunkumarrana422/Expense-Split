@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -183,11 +184,7 @@ fun GroupDetailsScreen(
                         members = distinctMembers,
                         settlements = settlements,
                         onDelete = { exp ->
-                            if (exp.paidByUserId == currentUserId) {
-                                onDeleteExpense(exp)
-                            } else {
-                                expenseToDelete = exp
-                            }
+                            expenseToDelete = exp
                         },
                         onNavigateToSettlements = {
                             coroutineScope.launch { pagerState.animateScrollToPage(5) }
@@ -199,11 +196,7 @@ fun GroupDetailsScreen(
                     1 -> ExpensesTab(
                         expenses = expenses,
                         onDelete = { exp ->
-                            if (exp.paidByUserId == currentUserId) {
-                                onDeleteExpense(exp)
-                            } else {
-                                expenseToDelete = exp
-                            }
+                            expenseToDelete = exp
                         }
                     )
                     2 -> MembersTab(distinctMembers)
@@ -244,11 +237,6 @@ fun GroupDetailsScreen(
                             "Paid by: ${exp.paidByName}",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            "⚠️ Notice: If you delete another member's or admin's expense, a personal warning notification with your name and details will be sent directly to their phone.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
                         )
                     }
                 } else {
@@ -388,11 +376,39 @@ fun OverviewTab(
                     Text(text = "Total Group Spending", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Text(text = "₹$totalSpending", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Spacer(modifier = Modifier.height(4.dp))
+                    val context = LocalContext.current
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "Room Code: ${group?.roomCode ?: ""}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(text = "Room Code: ${group?.roomCode ?: ""}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            IconButton(
+                                onClick = {
+                                    group?.roomCode?.let { code ->
+                                        val sendIntent = android.content.Intent().apply {
+                                            action = android.content.Intent.ACTION_SEND
+                                            putExtra(android.content.Intent.EXTRA_TEXT, "Join my expense room on SplitEase! Room Code: $code")
+                                            type = "text/plain"
+                                        }
+                                        val shareIntent = android.content.Intent.createChooser(sendIntent, null)
+                                        context.startActivity(shareIntent)
+                                    }
+                                },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Share Room Code",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
                         Text(text = "Members: ${members.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
