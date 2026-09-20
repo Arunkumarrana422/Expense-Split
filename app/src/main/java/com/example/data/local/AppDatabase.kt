@@ -75,6 +75,9 @@ interface SettlementDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSettlement(settlement: SettlementEntity)
+
+    @Query("DELETE FROM settlements WHERE settlementId = :settlementId")
+    suspend fun deleteSettlement(settlementId: String)
 }
 
 @Dao

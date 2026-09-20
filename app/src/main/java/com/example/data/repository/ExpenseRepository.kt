@@ -652,23 +652,62 @@ class ExpenseRepository(private val context: Context) {
         receiverName: String,
         amount: Long,
         paymentMethod: String,
-        notes: String
+        notes: String,
+        payerId: String = "",
+        payerName: String = "",
+        groupName: String = ""
     ) {
         val settlementId = UUID.randomUUID().toString()
+        val actualPayerId = payerId.ifBlank { currentUserId }
+        val actualPayerName = payerName.ifBlank { currentUserName.ifBlank { "Member" } }
         val settlement = SettlementEntity(
             settlementId = settlementId,
             groupId = groupId,
-            payerUserId = currentUserId,
-            payerName = currentUserName,
+            payerUserId = actualPayerId,
+            payerName = actualPayerName,
             receiverUserId = receiverId,
             receiverName = receiverName,
             amountInMinorUnits = amount,
             paymentMethod = paymentMethod,
+            status = "COMPLETED",
+            settlementDate = System.currentTimeMillis(),
             notes = notes
         )
         database.settlementDao().insertSettlement(settlement)
         try {
             dbRef.child("group_settlements").child(groupId).child(settlementId).setValue(settlement).await()
+        } catch (e: Exception) {}
+
+        // Notification: Broadcast settlement
+        val notifId = UUID.randomUUID().toString()
+        val resolvedGroupName = groupName.ifBlank {
+            database.groupDao().getGroupById(groupId)?.groupName ?: ""
+        }
+        val groupSuffix = if (resolvedGroupName.isNotBlank()) " in $resolvedGroupName" else ""
+        val notif = NotificationEntity(
+            id = notifId,
+            recipientUserId = "ALL",
+            senderUserId = actualPayerId,
+            senderUserName = actualPayerName,
+            groupId = groupId,
+            groupName = resolvedGroupName,
+            title = "🤝 Payment Settled",
+            message = "$actualPayerName settled ₹$amount with $receiverName via $paymentMethod$groupSuffix.",
+            type = "INFO",
+            expenseTitle = "Settlement",
+            amount = amount.toDouble(),
+            timestamp = System.currentTimeMillis()
+        )
+        database.notificationDao().insertNotification(notif)
+        try {
+            dbRef.child("notifications").child(notifId).setValue(notif).await()
+        } catch (e: Exception) {}
+    }
+
+    suspend fun deleteSettlement(settlement: SettlementEntity) {
+        database.settlementDao().deleteSettlement(settlement.settlementId)
+        try {
+            dbRef.child("group_settlements").child(settlement.groupId).child(settlement.settlementId).removeValue().await()
         } catch (e: Exception) {}
     }
 

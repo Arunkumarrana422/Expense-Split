@@ -21,7 +21,7 @@ data class MemberBalance(
     val totalPaidSettlements: Long = 0L
 ) {
     val netBalance: Long
-        get() = (totalPaid + totalReceivedSettlements) - (totalShare + totalPaidSettlements)
+        get() = (totalPaid + totalPaidSettlements) - (totalShare + totalReceivedSettlements)
 }
 
 data class DebtTransaction(

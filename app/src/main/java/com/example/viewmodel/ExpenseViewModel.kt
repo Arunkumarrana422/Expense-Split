@@ -232,10 +232,37 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addSettlement(groupId: String, receiverId: String, receiverName: String, amount: Long, paymentMethod: String, notes: String, onComplete: () -> Unit) {
+    fun addSettlement(
+        groupId: String,
+        receiverId: String,
+        receiverName: String,
+        amount: Long,
+        paymentMethod: String,
+        notes: String,
+        payerId: String = "",
+        payerName: String = "",
+        groupName: String = "",
+        onComplete: () -> Unit
+    ) {
         viewModelScope.launch {
-            repository.addSettlement(groupId, receiverId, receiverName, amount, paymentMethod, notes)
+            repository.addSettlement(
+                groupId = groupId,
+                receiverId = receiverId,
+                receiverName = receiverName,
+                amount = amount,
+                paymentMethod = paymentMethod,
+                notes = notes,
+                payerId = payerId,
+                payerName = payerName,
+                groupName = groupName
+            )
             onComplete()
+        }
+    }
+
+    fun deleteSettlement(settlement: SettlementEntity) {
+        viewModelScope.launch {
+            repository.deleteSettlement(settlement)
         }
     }
 

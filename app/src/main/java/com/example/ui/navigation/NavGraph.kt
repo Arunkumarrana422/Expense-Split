@@ -9,7 +9,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.*
+import androidx.navigation.navArgument
 import com.example.ui.auth.LoginScreen
 import com.example.ui.auth.RegisterScreen
 import com.example.ui.auth.SplashOnboardingScreen
@@ -40,8 +42,18 @@ sealed class Screen(val route: String) {
     object AddExpense : Screen("add_expense/{groupId}") {
         fun createRoute(groupId: String) = "add_expense/$groupId"
     }
-    object Settlement : Screen("settlement/{groupId}") {
-        fun createRoute(groupId: String) = "settlement/$groupId"
+    object Settlement : Screen("settlement/{groupId}?payerId={payerId}&receiverId={receiverId}&amount={amount}") {
+        fun createRoute(groupId: String, payerId: String? = null, receiverId: String? = null, amount: Long? = null): String {
+            val builder = StringBuilder("settlement/$groupId")
+            val params = mutableListOf<String>()
+            if (!payerId.isNullOrBlank()) params.add("payerId=$payerId")
+            if (!receiverId.isNullOrBlank()) params.add("receiverId=$receiverId")
+            if (amount != null && amount > 0L) params.add("amount=$amount")
+            if (params.isNotEmpty()) {
+                builder.append("?").append(params.joinToString("&"))
+            }
+            return builder.toString()
+        }
     }
     object Personal : Screen("personal")
     object AddPersonalExpense : Screen("add_personal_expense")
@@ -240,8 +252,11 @@ fun AppNavGraph(
                     members = members,
                     settlements = settlements,
                     onAddExpense = { navController.navigate(Screen.AddExpense.createRoute(groupId)) },
-                    onAddSettlement = { navController.navigate(Screen.Settlement.createRoute(groupId)) },
+                    onAddSettlement = { payerId, receiverId, amount ->
+                        navController.navigate(Screen.Settlement.createRoute(groupId, payerId, receiverId, amount))
+                    },
                     onDeleteExpense = { exp -> viewModel.deleteExpense(exp, group?.groupName ?: "") },
+                    onDeleteSettlement = { settlement -> viewModel.deleteSettlement(settlement) },
                     onRefresh = { viewModel.refreshData() },
                     onBack = { navController.popBackStack() }
                 )
@@ -259,11 +274,57 @@ fun AppNavGraph(
                     onBack = { navController.popBackStack() }
                 )
             }
-            composable(Screen.Settlement.route) { backStackEntry ->
+            composable(
+                route = Screen.Settlement.route,
+                arguments = listOf(
+                    navArgument("groupId") { type = NavType.StringType },
+                    navArgument("payerId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("receiverId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("amount") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
                 val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+                val initialPayerId = backStackEntry.arguments?.getString("payerId")
+                val initialReceiverId = backStackEntry.arguments?.getString("receiverId")
+                val initialAmount = backStackEntry.arguments?.getString("amount")?.toLongOrNull()
+                val group = groups.find { it.groupId == groupId }
+                val expenses by viewModel.getExpensesForGroup(groupId).collectAsStateWithLifecycle(initialValue = emptyList())
+                val members by viewModel.getMembersForGroup(groupId).collectAsStateWithLifecycle(initialValue = emptyList())
+                val settlements by viewModel.getSettlementsForGroup(groupId).collectAsStateWithLifecycle(initialValue = emptyList())
+
                 SettlementScreen(
-                    onRecordSettlement = { receiverId, receiverName, amount, method, notes ->
-                        viewModel.addSettlement(groupId, receiverId, receiverName, amount, method, notes) {
+                    currentUserId = viewModel.currentUserId,
+                    currentUserName = viewModel.currentUserName,
+                    members = members,
+                    expenses = expenses,
+                    settlements = settlements,
+                    initialPayerId = initialPayerId,
+                    initialReceiverId = initialReceiverId,
+                    initialAmount = initialAmount,
+                    onRecordSettlement = { payerId, payerName, receiverId, receiverName, amount, method, notes ->
+                        viewModel.addSettlement(
+                            groupId = groupId,
+                            receiverId = receiverId,
+                            receiverName = receiverName,
+                            amount = amount,
+                            paymentMethod = method,
+                            notes = notes,
+                            payerId = payerId,
+                            payerName = payerName,
+                            groupName = group?.groupName ?: ""
+                        ) {
                             navController.popBackStack()
                         }
                     },
