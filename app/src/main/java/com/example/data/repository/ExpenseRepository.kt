@@ -737,4 +737,38 @@ class ExpenseRepository(private val context: Context) {
             dbRef.child("personal_expenses").child(currentUserId).child(id).removeValue().await()
         } catch (e: Exception) {}
     }
+
+    suspend fun updateGroup(groupId: String, name: String, description: String, currency: String, maxMembers: Int) {
+        val existing = database.groupDao().getGroupById(groupId) ?: return
+        val updated = existing.copy(
+            groupName = name,
+            description = description,
+            currency = currency,
+            maximumMembers = maxMembers
+        )
+        database.groupDao().insertGroup(updated)
+        try {
+            dbRef.child("groups").child(groupId).setValue(updated).await()
+        } catch (e: Exception) {}
+    }
+
+    suspend fun requestDeleteGroup(groupId: String, groupName: String) {
+        val notifId = UUID.randomUUID().toString()
+        val notif = NotificationEntity(
+            id = notifId,
+            recipientUserId = "ALL",
+            senderUserId = currentUserId,
+            senderUserName = currentUserName,
+            groupId = groupId,
+            groupName = groupName,
+            title = "🗑️ Room Deletion Request",
+            message = "$currentUserName requested deletion of room '$groupName'. All members must approve before deletion.",
+            type = "WARNING",
+            timestamp = System.currentTimeMillis()
+        )
+        database.notificationDao().insertNotification(notif)
+        try {
+            dbRef.child("notifications").child(notifId).setValue(notif).await()
+        } catch (e: Exception) {}
+    }
 }

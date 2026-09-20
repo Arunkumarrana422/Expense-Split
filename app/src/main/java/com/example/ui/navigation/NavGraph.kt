@@ -150,8 +150,9 @@ fun AppNavGraph(
         }
             composable(Screen.CreateRoom.route) {
                 CreateRoomScreen(
-                    onCreate = { name, desc, currency, max ->
+                    onCreate = { name, desc, currency, max, onFinished ->
                         viewModel.createGroup(name, desc, currency, max) { roomCode ->
+                            onFinished()
                             navController.popBackStack()
                         }
                     },
@@ -162,8 +163,9 @@ fun AppNavGraph(
                 var joinError by remember { mutableStateOf<String?>(null) }
                 JoinRoomScreen(
                     errorMessage = joinError,
-                    onJoin = { code ->
+                    onJoin = { code, onFinished ->
                         viewModel.joinGroup(code) { result ->
+                            onFinished()
                             if (result.isSuccess) {
                                 navController.popBackStack()
                             } else {
@@ -192,7 +194,7 @@ fun AppNavGraph(
                     },
                     onDeleteExpense = { exp -> viewModel.deleteExpense(exp, group?.groupName ?: "") },
                     onDeleteSettlement = { settlement -> viewModel.deleteSettlement(settlement) },
-                    onRefresh = { viewModel.refreshData() },
+                    onRefresh = { onComplete -> viewModel.refreshData(onComplete) },
                     onBack = { navController.popBackStack() }
                 )
             }

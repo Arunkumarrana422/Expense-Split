@@ -21,7 +21,7 @@ import androidx.compose.ui.unit.sp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateRoomScreen(
-    onCreate: (String, String, String, Int) -> Unit,
+    onCreate: (String, String, String, Int, () -> Unit) -> Unit,
     onBack: () -> Unit
 ) {
     var roomName by remember { mutableStateOf("") }
@@ -103,7 +103,9 @@ fun CreateRoomScreen(
                     val max = maxMembersStr.toIntOrNull() ?: 5
                     if (roomName.isNotBlank()) {
                         isLoading = true
-                        onCreate(roomName, description, currency, max)
+                        onCreate(roomName, description, currency, max) {
+                            isLoading = false
+                        }
                     }
                 },
                 modifier = Modifier
@@ -131,7 +133,7 @@ fun CreateRoomScreen(
 @Composable
 fun JoinRoomScreen(
     errorMessage: String? = null,
-    onJoin: (String) -> Unit,
+    onJoin: (String, () -> Unit) -> Unit,
     onBack: () -> Unit
 ) {
     var roomCode by remember { mutableStateOf("") }
@@ -143,6 +145,7 @@ fun JoinRoomScreen(
 
     LaunchedEffect(currentError) {
         if (currentError != null) {
+            isLoading = false
             kotlinx.coroutines.delay(3000L)
             currentError = null
         }
@@ -212,7 +215,9 @@ fun JoinRoomScreen(
                         focusManager.clearFocus()
                         if (roomCode.length >= 4) {
                             isLoading = true
-                            onJoin(roomCode)
+                            onJoin(roomCode) {
+                                isLoading = false
+                            }
                         } else {
                             currentError = "Please enter a valid room code"
                         }

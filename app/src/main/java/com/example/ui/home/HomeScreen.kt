@@ -1,6 +1,8 @@
 package com.example.ui.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,19 +21,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.GroupEntity
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     userName: String,
+    currentUserId: String = "",
     groups: List<GroupEntity>,
     isSyncing: Boolean = false,
     onRefresh: () -> Unit = {},
     onCreateRoom: () -> Unit,
     onJoinRoom: () -> Unit,
     onGroupClick: (String) -> Unit,
+    onEditGroup: (groupId: String, name: String, desc: String, currency: String, maxMembers: Int, onComplete: () -> Unit) -> Unit = { _, _, _, _, _, cb -> cb() },
+    onDeleteGroup: (groupId: String, name: String, onComplete: () -> Unit) -> Unit = { _, _, cb -> cb() },
     onNotificationsClick: () -> Unit,
     onSettingsClick: () -> Unit
 ) {
+    var groupToEdit by remember { mutableStateOf<GroupEntity?>(null) }
+    var groupToDelete by remember { mutableStateOf<GroupEntity?>(null) }
+    var isActionLoading by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -211,21 +220,19 @@ fun HomeScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            OutlinedButton(
-                                onClick = onRefresh,
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Sync Data from Cloud")
-                            }
                         }
                     }
                 }
             } else {
                 items(distinctGroups, key = { it.groupId }) { group ->
-                    GroupCard(group = group, onClick = { onGroupClick(group.groupId) })
+                    val isOwner = currentUserId.isNotBlank() && group.createdBy == currentUserId
+                    GroupCard(
+                        group = group,
+                        isOwner = isOwner,
+                        onClick = { onGroupClick(group.groupId) },
+                        onEdit = { groupToEdit = group },
+                        onDelete = { groupToDelete = group }
+                    )
                 }
             }
 
@@ -233,6 +240,103 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
+    }
+
+    // Edit Room Dialog
+    if (groupToEdit != null) {
+        val group = groupToEdit!!
+        var name by remember { mutableStateOf(group.groupName) }
+        var description by remember { mutableStateOf(group.description) }
+        var maxMembersStr by remember { mutableStateOf(group.maximumMembers.toString()) }
+
+        AlertDialog(
+            onDismissRequest = { if (!isActionLoading) groupToEdit = null },
+            title = { Text("Edit Room") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Room Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text("Description") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = maxMembersStr,
+                        onValueChange = { maxMembersStr = it },
+                        label = { Text("Max Members (Membership Limit)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val max = maxMembersStr.toIntOrNull() ?: group.maximumMembers
+                        if (name.isNotBlank()) {
+                            isActionLoading = true
+                            onEditGroup(group.groupId, name, description, group.currency, max) {
+                                isActionLoading = false
+                                groupToEdit = null
+                            }
+                        }
+                    },
+                    enabled = !isActionLoading
+                ) {
+                    if (isActionLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Text("Save")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { groupToEdit = null }, enabled = !isActionLoading) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // Delete Room Confirmation Dialog
+    if (groupToDelete != null) {
+        val group = groupToDelete!!
+        AlertDialog(
+            onDismissRequest = { if (!isActionLoading) groupToDelete = null },
+            title = { Text("Request Room Deletion") },
+            text = {
+                Text("Are you sure you want to request deletion of room '${group.groupName}'? This will notify all members for approval. The room will be deleted once approved.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isActionLoading = true
+                        onDeleteGroup(group.groupId, group.groupName) {
+                            isActionLoading = false
+                            groupToDelete = null
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    enabled = !isActionLoading
+                ) {
+                    if (isActionLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onError)
+                    } else {
+                        Text("Request Deletion")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { groupToDelete = null }, enabled = !isActionLoading) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
@@ -273,13 +377,29 @@ fun SummaryCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun GroupCard(group: GroupEntity, onClick: () -> Unit) {
+fun GroupCard(
+    group: GroupEntity,
+    isOwner: Boolean,
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
     Card(
-        onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp)),
+            .clip(RoundedCornerShape(16.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = {
+                    if (isOwner) {
+                        showMenu = true
+                    }
+                }
+            ),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -314,14 +434,30 @@ fun GroupCard(group: GroupEntity, onClick: () -> Unit) {
                 }
 
                 Column {
-                    Text(
-                        text = group.groupName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = group.groupName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (isOwner) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = "Owner",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "${group.currentMemberCount} members • Code: ${group.roomCode}",
+                        text = "${group.currentMemberCount}/${group.maximumMembers} members • Code: ${group.roomCode}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -334,5 +470,38 @@ fun GroupCard(group: GroupEntity, onClick: () -> Unit) {
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+
+    if (showMenu) {
+        AlertDialog(
+            onDismissRequest = { showMenu = false },
+            title = { Text("Room Options: ${group.groupName}") },
+            text = { Text("Long-press options for your room:") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showMenu = false
+                        onEdit()
+                    }
+                ) {
+                    Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Edit Room")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showMenu = false
+                        onDelete()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Delete Room")
+                }
+            }
+        )
     }
 }

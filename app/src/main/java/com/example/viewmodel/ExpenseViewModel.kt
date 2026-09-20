@@ -278,4 +278,18 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             repository.deletePersonalExpense(id)
         }
     }
+
+    fun updateGroup(groupId: String, name: String, description: String, currency: String, maxMembers: Int, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            repository.updateGroup(groupId, name, description, currency, maxMembers)
+            onComplete()
+        }
+    }
+
+    fun requestDeleteGroup(groupId: String, groupName: String, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            repository.requestDeleteGroup(groupId, groupName)
+            onComplete()
+        }
+    }
 }

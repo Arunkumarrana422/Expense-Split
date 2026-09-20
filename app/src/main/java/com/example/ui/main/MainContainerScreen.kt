@@ -106,12 +106,19 @@ fun MainContainerScreen(
             when (page) {
                 0 -> HomeScreen(
                     userName = viewModel.currentUserName,
+                    currentUserId = viewModel.currentUserId,
                     groups = groups,
                     isSyncing = isSyncing,
                     onRefresh = { viewModel.refreshData() },
                     onCreateRoom = onNavigateToCreateRoom,
                     onJoinRoom = onNavigateToJoinRoom,
                     onGroupClick = onNavigateToGroupDetails,
+                    onEditGroup = { groupId, name, desc, currency, max, onComplete ->
+                        viewModel.updateGroup(groupId, name, desc, currency, max, onComplete)
+                    },
+                    onDeleteGroup = { groupId, name, onComplete ->
+                        viewModel.requestDeleteGroup(groupId, name, onComplete)
+                    },
                     onNotificationsClick = onNavigateToNotifications,
                     onSettingsClick = {
                         coroutineScope.launch {

@@ -47,7 +47,7 @@ fun GroupDetailsScreen(
     onAddSettlement: (payerId: String?, receiverId: String?, amount: Long?) -> Unit,
     onDeleteExpense: (ExpenseEntity) -> Unit,
     onDeleteSettlement: (SettlementEntity) -> Unit,
-    onRefresh: () -> Unit = {},
+    onRefresh: (onComplete: () -> Unit) -> Unit = { it() },
     onBack: () -> Unit
 ) {
     val tabs = listOf("Overview", "Expenses", "Members", "Balances", "Activity", "Settlements")
@@ -56,6 +56,7 @@ fun GroupDetailsScreen(
     var expenseToDelete by remember { mutableStateOf<ExpenseEntity?>(null) }
     var settlementToDelete by remember { mutableStateOf<SettlementEntity?>(null) }
     var isDeleting by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -67,8 +68,24 @@ fun GroupDetailsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onRefresh) {
-                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Sync Group Data")
+                    if (isRefreshing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .padding(2.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    } else {
+                        IconButton(onClick = {
+                            isRefreshing = true
+                            onRefresh {
+                                isRefreshing = false
+                            }
+                        }) {
+                            Icon(imageVector = Icons.Default.Refresh, contentDescription = "Sync Group Data")
+                        }
                     }
                     IconButton(onClick = { onAddSettlement(null, null, null) }) {
                         Icon(imageVector = Icons.Default.Payment, contentDescription = "Settle Up")
