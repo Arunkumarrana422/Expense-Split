@@ -562,18 +562,13 @@ fun MembersTab(members: List<GroupMemberEntity>) {
         items(sortedMembers, key = { it.userId.ifBlank { it.membershipId } }) { member ->
             val isAdmin = member.role.equals("ADMIN", ignoreCase = true) || member.role.equals("CREATOR", ignoreCase = true)
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp)),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isAdmin) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
-                    else MaterialTheme.colorScheme.surface
-                ),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    if (isAdmin) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                    if (isAdmin) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
                     else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                 )
             ) {
@@ -1132,17 +1127,17 @@ fun SettlementsTab(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     1.dp,
-                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.25f)
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
                 )
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(18.dp),
+                        .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -1154,7 +1149,7 @@ fun SettlementsTab(
                             modifier = Modifier
                                 .size(46.dp)
                                 .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)),
+                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -1166,22 +1161,22 @@ fun SettlementsTab(
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
-                                text = "Settled History (${selectedFilter.label})",
+                                text = if (selectedFilter == TimeFilter.ALL) "Total Settled History" else "Settled History (${selectedFilter.label})",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 text = "₹$totalSettledAmount",
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
 
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f)
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
                     ) {
                         Text(
                             text = "${filteredSettlements.size} Completed",

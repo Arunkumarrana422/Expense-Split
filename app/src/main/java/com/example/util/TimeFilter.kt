@@ -19,9 +19,9 @@ import java.util.Calendar
 
 enum class TimeFilter(val label: String) {
     ALL("All"),
-    DAILY("Daily (Today)"),
-    WEEKLY("Weekly (7 Days)"),
-    MONTHLY("Monthly (This Month)")
+    DAILY("Day"),
+    WEEKLY("Week"),
+    MONTHLY("Month")
 }
 
 fun isTimestampInFilter(timestamp: Long, filter: TimeFilter): Boolean {
