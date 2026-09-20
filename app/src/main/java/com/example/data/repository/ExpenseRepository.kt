@@ -142,13 +142,17 @@ class ExpenseRepository(private val context: Context) {
             val uid = authInstance.currentUser?.uid
             if (uid != null) {
                 try {
-                    val userSnap = dbRef.child("users").child(uid).get().await()
+                    val userRef = dbRef.child("users").child(uid)
+                    val userSnap = userRef.get().await()
                     val savedName = userSnap.child("fullName").getValue(String::class.java)
                     if (!savedName.isNullOrBlank() && authInstance.currentUser?.displayName.isNullOrBlank()) {
                         val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                             .setDisplayName(savedName)
                             .build()
                         authInstance.currentUser?.updateProfile(profileUpdates)?.await()
+                    }
+                    if (!userSnap.hasChild("profileImage")) {
+                        userRef.child("profileImage").setValue("")
                     }
                 } catch (e: Exception) {
                     // Non-fatal
@@ -177,6 +181,7 @@ class ExpenseRepository(private val context: Context) {
                     "userId" to uid,
                     "fullName" to fullName,
                     "email" to email,
+                    "profileImage" to "",
                     "createdAt" to System.currentTimeMillis()
                 )
                 try {
@@ -224,7 +229,20 @@ class ExpenseRepository(private val context: Context) {
             val ref = dbRef
 
             try {
-                val userSnap = ref.child("users").child(userId).get().await()
+                val userRef = ref.child("users").child(userId)
+                val userSnap = userRef.get().await()
+                if (!userSnap.exists()) {
+                    val userData = hashMapOf(
+                        "userId" to userId,
+                        "fullName" to currentUserName,
+                        "email" to currentUserEmail,
+                        "profileImage" to "",
+                        "createdAt" to System.currentTimeMillis()
+                    )
+                    userRef.setValue(userData)
+                } else if (!userSnap.hasChild("profileImage")) {
+                    userRef.child("profileImage").setValue("")
+                }
                 val profileImg = userSnap.child("profileImage").getValue(String::class.java) ?: ""
                 if (profileImg.isNotBlank()) {
                     prefs.edit().putString("profile_photo", profileImg).apply()
