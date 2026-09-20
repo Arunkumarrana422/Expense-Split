@@ -1,5 +1,6 @@
 package com.example.ui.home
 
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -16,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -387,6 +389,7 @@ fun GroupCard(
     onDelete: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Card(
         modifier = Modifier
@@ -397,6 +400,8 @@ fun GroupCard(
                 onLongClick = {
                     if (isOwner) {
                         showMenu = true
+                    } else {
+                        Toast.makeText(context, "Only Admin", Toast.LENGTH_SHORT).show()
                     }
                 }
             ),
@@ -434,27 +439,11 @@ fun GroupCard(
                 }
 
                 Column {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = group.groupName,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                        if (isOwner) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Text(
-                                    text = "Owner",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        text = group.groupName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "${group.currentMemberCount}/${group.maximumMembers} members • Code: ${group.roomCode}",
