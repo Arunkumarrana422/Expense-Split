@@ -37,6 +37,7 @@ data class GroupMemberEntity(
     val userId: String = "",
     val userName: String = "",
     val role: String = "MEMBER", // ADMIN or MEMBER
+    val profileImage: String = "",
     val joinedAt: Long = System.currentTimeMillis()
 )
 

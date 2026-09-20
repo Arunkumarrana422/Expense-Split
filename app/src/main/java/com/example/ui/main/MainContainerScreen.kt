@@ -17,6 +17,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -50,6 +53,17 @@ fun MainContainerScreen(
 
     val allGroupExpenses by viewModel.allGroupExpenses.collectAsStateWithLifecycle()
     val profilePhoto by viewModel.profilePhoto.collectAsStateWithLifecycle()
+
+    var backPressedTime by remember { mutableStateOf(0L) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    androidx.activity.compose.BackHandler(enabled = true) {
+        if (backPressedTime + 2000 > System.currentTimeMillis()) {
+            (context as? android.app.Activity)?.finish()
+        } else {
+            android.widget.Toast.makeText(context, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
+            backPressedTime = System.currentTimeMillis()
+        }
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0.dp),

@@ -208,6 +208,7 @@ fun GroupDetailsScreen(
                     )
                     5 -> SettlementsTab(
                         settlements = settlements,
+                        members = distinctMembers,
                         onDeleteSettlement = { settlementToDelete = it },
                         onRecordSettlement = { onAddSettlement(null, null, null) }
                     )
@@ -617,24 +618,11 @@ fun MembersTab(members: List<GroupMemberEntity>) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    if (isAdmin) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.secondaryContainer
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = member.userName.take(1).uppercase(),
-                                fontWeight = FontWeight.Bold,
-                                color = if (isAdmin) MaterialTheme.colorScheme.onPrimary
-                                        else MaterialTheme.colorScheme.onSecondaryContainer,
-                                fontSize = 16.sp
-                            )
-                        }
+                        com.example.ui.common.UserAvatar(
+                            userName = member.userName,
+                            base64Photo = member.profileImage,
+                            size = 44.dp
+                        )
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -872,25 +860,11 @@ fun BalancesTab(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (net == 0L) MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
-                                        else if (net > 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                                        else MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = member.userName.take(1).uppercase(),
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (net == 0L) MaterialTheme.colorScheme.secondary
-                                            else if (net > 0) MaterialTheme.colorScheme.primary
-                                            else MaterialTheme.colorScheme.error
-                                )
-                            }
+                            com.example.ui.common.UserAvatar(
+                                userName = member.userName,
+                                base64Photo = member.profileImage,
+                                size = 36.dp
+                            )
                             Text(text = member.userName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         }
 
@@ -1079,6 +1053,7 @@ fun ActivityTab(
 @Composable
 fun SettlementsTab(
     settlements: List<SettlementEntity>,
+    members: List<GroupMemberEntity>,
     onDeleteSettlement: (SettlementEntity) -> Unit,
     onRecordSettlement: () -> Unit
 ) {
@@ -1247,6 +1222,9 @@ fun SettlementsTab(
             }
         } else {
             items(filteredSettlements, key = { it.settlementId }) { settlement ->
+                val payerMember = remember(members, settlement) { members.firstOrNull { it.userName.equals(settlement.payerName, true) || it.userId == settlement.payerUserId } }
+                val receiverMember = remember(members, settlement) { members.firstOrNull { it.userName.equals(settlement.receiverName, true) || it.userId == settlement.receiverUserId } }
+
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -1274,20 +1252,11 @@ fun SettlementsTab(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.errorContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = settlement.payerName.take(1).uppercase(),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                }
+                                com.example.ui.common.UserAvatar(
+                                    userName = settlement.payerName,
+                                    base64Photo = payerMember?.profileImage ?: "",
+                                    size = 32.dp
+                                )
                                 Text(
                                     text = settlement.payerName,
                                     style = MaterialTheme.typography.titleMedium,
@@ -1299,20 +1268,11 @@ fun SettlementsTab(
                                     modifier = Modifier.size(16.dp),
                                     tint = MaterialTheme.colorScheme.primary
                                 )
-                                Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .background(MaterialTheme.colorScheme.primaryContainer),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = settlement.receiverName.take(1).uppercase(),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                }
+                                com.example.ui.common.UserAvatar(
+                                    userName = settlement.receiverName,
+                                    base64Photo = receiverMember?.profileImage ?: "",
+                                    size = 32.dp
+                                )
                                 Text(
                                     text = settlement.receiverName,
                                     style = MaterialTheme.typography.titleMedium,

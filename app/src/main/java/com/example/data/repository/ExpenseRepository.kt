@@ -45,6 +45,18 @@ class ExpenseRepository(private val context: Context) {
         try {
             if (currentUserId.isNotBlank()) {
                 dbRef.child("users").child(currentUserId).child("profileImage").setValue(base64Str).await()
+                val userGroupsSnap = dbRef.child("user_groups").child(currentUserId).get().await()
+                for (gChild in userGroupsSnap.children) {
+                    val gId = gChild.key ?: continue
+                    val membersSnap = dbRef.child("group_members").child(gId).get().await()
+                    for (mChild in membersSnap.children) {
+                        val mKey = mChild.key ?: continue
+                        val m = mChild.getValue(GroupMemberEntity::class.java)
+                        if (m != null && m.userId == currentUserId) {
+                            dbRef.child("group_members").child(gId).child(mKey).child("profileImage").setValue(base64Str)
+                        }
+                    }
+                }
             }
         } catch (e: Exception) {}
     }
@@ -261,8 +273,15 @@ class ExpenseRepository(private val context: Context) {
                     val membersSnap = ref.child("group_members").child(groupId).get().await()
                     val memberList = mutableListOf<GroupMemberEntity>()
                     for (mChild in membersSnap.children) {
-                        val member = mChild.getValue(GroupMemberEntity::class.java)
+                        var member = mChild.getValue(GroupMemberEntity::class.java)
                         if (member != null) {
+                            try {
+                                val userSnap = ref.child("users").child(member.userId).get().await()
+                                val pImg = userSnap.child("profileImage").getValue(String::class.java) ?: ""
+                                if (pImg.isNotBlank()) {
+                                    member = member.copy(profileImage = pImg)
+                                }
+                            } catch (e: Exception) {}
                             memberList.add(member)
                         }
                     }
