@@ -73,36 +73,31 @@ class MainActivity : ComponentActivity() {
                 else -> systemDark
             }
 
-            val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle(initialValue = true)
-            var wasConnectedInSession by remember { mutableStateOf(false) }
-            var isDisconnectedDuringSession by remember { mutableStateOf(false) }
+            val isOnline by networkMonitor.isOnline.collectAsStateWithLifecycle(
+                initialValue = networkMonitor.isCurrentlyConnected()
+            )
+            var wasOffline by remember { mutableStateOf(!networkMonitor.isCurrentlyConnected()) }
 
             // Automatic detection and reload when connection state changes during runtime
             LaunchedEffect(isOnline) {
-                if (isOnline) {
-                    wasConnectedInSession = true
-                    if (isDisconnectedDuringSession) {
-                        // Connection restored: auto-refresh backend data
-                        viewModel.refreshData()
-                        isDisconnectedDuringSession = false
-                    }
-                } else {
-                    // Only show full-screen disconnect if connection was active and then lost during app use
-                    if (wasConnectedInSession) {
-                        isDisconnectedDuringSession = true
-                    }
+                if (!isOnline) {
+                    wasOffline = true
+                } else if (wasOffline) {
+                    // Connection restored: auto-refresh backend data
+                    viewModel.refreshData()
+                    wasOffline = false
                 }
             }
 
             MyApplicationTheme(darkTheme = darkTheme) {
                 AnimatedContent(
-                    targetState = isDisconnectedDuringSession,
+                    targetState = isOnline,
                     transitionSpec = {
                         fadeIn() togetherWith fadeOut()
                     },
                     label = "OnlineStateTransition"
-                ) { isDisconnected ->
-                    if (!isDisconnected) {
+                ) { online ->
+                    if (online) {
                         AppNavGraph(
                             viewModel = viewModel,
                             initialTargetScreen = initialDestination.value
@@ -111,7 +106,6 @@ class MainActivity : ComponentActivity() {
                         NoInternetScreen(
                             onRetry = {
                                 if (networkMonitor.isCurrentlyConnected()) {
-                                    isDisconnectedDuringSession = false
                                     viewModel.refreshData()
                                 }
                             }
