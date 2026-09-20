@@ -202,6 +202,7 @@ class ExpenseRepository(private val context: Context) {
             getAuth().signOut()
         } catch (e: Exception) {}
         prefs.edit().clear().apply()
+        profilePhotoFlow.value = ""
     }
 
     suspend fun updateProfile(newName: String): Result<Unit> {
@@ -244,10 +245,8 @@ class ExpenseRepository(private val context: Context) {
                     userRef.child("profileImage").setValue("")
                 }
                 val profileImg = userSnap.child("profileImage").getValue(String::class.java) ?: ""
-                if (profileImg.isNotBlank()) {
-                    prefs.edit().putString("profile_photo", profileImg).apply()
-                    profilePhotoFlow.value = profileImg
-                }
+                prefs.edit().putString("profile_photo", profileImg).apply()
+                profilePhotoFlow.value = profileImg
             } catch (e: Exception) {}
 
             // 1. Fetch user's registered groups from user_groups node
