@@ -157,7 +157,6 @@ fun SettlementScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(top = 8.dp, bottom = 0.dp),
                 title = {
                     Text(
                         "Record Settlement",

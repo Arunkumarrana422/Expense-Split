@@ -49,7 +49,6 @@ fun AddExpenseScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(top = 8.dp, bottom = 0.dp),
                 title = { Text("Add Expense") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

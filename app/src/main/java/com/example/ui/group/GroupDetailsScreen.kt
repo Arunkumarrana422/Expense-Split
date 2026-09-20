@@ -60,7 +60,6 @@ fun GroupDetailsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(top = 8.dp, bottom = 0.dp),
                 title = { Text(group?.groupName ?: "Group Details", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

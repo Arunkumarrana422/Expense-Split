@@ -36,7 +36,6 @@ fun CreateRoomScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(top = 8.dp, bottom = 0.dp),
                 title = { Text("Create Expense Room") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -152,7 +151,6 @@ fun JoinRoomScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                windowInsets = WindowInsets(top = 8.dp, bottom = 0.dp),
                 title = { Text("Join Room") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
