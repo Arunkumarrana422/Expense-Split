@@ -1,0 +1,7 @@
+{
+  "name": "Expense Splitter",
+  "description": "Complete Native Android Expense Splitter Application",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
