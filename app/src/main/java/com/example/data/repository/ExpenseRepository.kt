@@ -8,6 +8,8 @@ import com.example.data.local.GroupEntity
 import com.example.data.local.GroupMemberEntity
 import com.example.data.local.PersonalExpenseEntity
 import com.example.data.local.SettlementEntity
+import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.Flow
@@ -16,7 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 
-class ExpenseRepository(context: Context) {
+class ExpenseRepository(private val context: Context) {
     private val database = Room.databaseBuilder(
         context.applicationContext,
         AppDatabase::class.java,
@@ -25,63 +27,88 @@ class ExpenseRepository(context: Context) {
 
     private val prefs = context.getSharedPreferences("expense_auth_prefs", Context.MODE_PRIVATE)
 
-    private val auth: FirebaseAuth? by lazy {
-        try {
-            FirebaseAuth.getInstance()
-        } catch (e: Exception) {
-            null
+    private fun ensureFirebase(): FirebaseApp {
+        val apps = FirebaseApp.getApps(context)
+        return if (apps.isNotEmpty()) {
+            FirebaseApp.getInstance()
+        } else {
+            val options = FirebaseOptions.Builder()
+                .setApplicationId("1:52643587669:android:55f7580c6b52c35c1a96dc")
+                .setApiKey("AIzaSyA9JFTO-kzwvccCvydATL-gqGgaqxo33wA")
+                .setProjectId("student-patnar")
+                .setDatabaseUrl("https://student-patnar-default-rtdb.firebaseio.com")
+                .setStorageBucket("student-patnar.firebasestorage.app")
+                .setGcmSenderId("52643587669")
+                .build()
+            FirebaseApp.initializeApp(context.applicationContext, options)
         }
     }
 
-    private val firestore: FirebaseFirestore? by lazy {
-        try {
+    private fun getAuth(): FirebaseAuth {
+        return try {
+            FirebaseAuth.getInstance()
+        } catch (e: Exception) {
+            val app = ensureFirebase()
+            FirebaseAuth.getInstance(app)
+        }
+    }
+
+    private fun getFirestore(): FirebaseFirestore {
+        return try {
             FirebaseFirestore.getInstance()
         } catch (e: Exception) {
-            null
+            val app = ensureFirebase()
+            FirebaseFirestore.getInstance(app)
         }
     }
 
     init {
         try {
-            if (com.google.firebase.FirebaseApp.getApps(context).isEmpty()) {
-                com.google.firebase.FirebaseApp.initializeApp(context)
-            }
+            ensureFirebase()
         } catch (e: Exception) {
             // Already initialized
         }
         // If not logged in via Firebase Auth, ensure local prefs are completely clean
-        if (auth?.currentUser == null) {
+        try {
+            if (getAuth().currentUser == null) {
+                prefs.edit().clear().apply()
+            }
+        } catch (e: Exception) {
             prefs.edit().clear().apply()
         }
     }
 
     val currentUserId: String
-        get() = auth?.currentUser?.uid ?: ""
+        get() = try { getAuth().currentUser?.uid ?: "" } catch (e: Exception) { "" }
 
     val isLoggedIn: Boolean
-        get() = auth?.currentUser != null
+        get() = try { getAuth().currentUser != null } catch (e: Exception) { false }
 
     val currentUserEmail: String
-        get() = auth?.currentUser?.email ?: ""
+        get() = try { getAuth().currentUser?.email ?: "" } catch (e: Exception) { "" }
 
     val currentUserName: String
         get() {
-            val user = auth?.currentUser
-            return user?.displayName?.takeIf { it.isNotBlank() }
-                ?: user?.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
-                ?: "User"
+            return try {
+                val user = getAuth().currentUser
+                user?.displayName?.takeIf { it.isNotBlank() }
+                    ?: user?.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
+                    ?: "User"
+            } catch (e: Exception) {
+                "User"
+            }
         }
 
     suspend fun login(email: String, password: String): Result<Unit> {
         return try {
-            val authInstance = auth ?: return Result.failure(Exception("Firebase Auth is not available"))
+            val authInstance = getAuth()
             authInstance.signInWithEmailAndPassword(email, password).await()
             val uid = authInstance.currentUser?.uid
             if (uid != null) {
                 // Try fetching user name from Firestore if display name is empty
                 try {
-                    val userDoc = firestore?.collection("users")?.document(uid)?.get()?.await()
-                    val savedName = userDoc?.getString("fullName")
+                    val userDoc = getFirestore().collection("users").document(uid).get().await()
+                    val savedName = userDoc.getString("fullName")
                     if (!savedName.isNullOrBlank() && authInstance.currentUser?.displayName.isNullOrBlank()) {
                         val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                             .setDisplayName(savedName)
@@ -101,7 +128,7 @@ class ExpenseRepository(context: Context) {
 
     suspend fun register(fullName: String, email: String, password: String): Result<Unit> {
         return try {
-            val authInstance = auth ?: return Result.failure(Exception("Firebase Auth is not available"))
+            val authInstance = getAuth()
             val result = authInstance.createUserWithEmailAndPassword(email, password).await()
             val user = result.user
             val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
@@ -118,7 +145,7 @@ class ExpenseRepository(context: Context) {
                     "createdAt" to System.currentTimeMillis()
                 )
                 try {
-                    firestore?.collection("users")?.document(uid)?.set(userData)?.await()
+                    getFirestore().collection("users").document(uid).set(userData).await()
                 } catch (e: Exception) {
                     // Non-fatal
                 }
@@ -132,20 +159,20 @@ class ExpenseRepository(context: Context) {
 
     fun logout() {
         try {
-            auth?.signOut()
+            getAuth().signOut()
         } catch (e: Exception) {}
         prefs.edit().clear().apply()
     }
 
     suspend fun updateProfile(newName: String): Result<Unit> {
         return try {
-            val user = auth?.currentUser ?: return Result.failure(Exception("User not logged in"))
+            val user = getAuth().currentUser ?: return Result.failure(Exception("User not logged in"))
             val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
                 .setDisplayName(newName)
                 .build()
             user.updateProfile(profileUpdates).await()
             try {
-                firestore?.collection("users")?.document(user.uid)?.update("fullName", newName)?.await()
+                getFirestore().collection("users").document(user.uid).update("fullName", newName).await()
             } catch (e: Exception) {}
             Result.success(Unit)
         } catch (e: Exception) {
@@ -156,7 +183,7 @@ class ExpenseRepository(context: Context) {
     suspend fun syncDataFromFirestore(userId: String) {
         if (userId.isBlank()) return
         try {
-            val fs = firestore ?: return
+            val fs = getFirestore()
             val memberQuery = fs.collection("groupMembers")
                 .whereEqualTo("userId", userId)
                 .get()
@@ -238,10 +265,9 @@ class ExpenseRepository(context: Context) {
         database.groupDao().insertMember(member)
 
         try {
-            firestore?.let { fs ->
-                fs.collection("groups").document(groupId).set(group).await()
-                fs.collection("groupMembers").document(membershipId).set(member).await()
-            }
+            val fs = getFirestore()
+            fs.collection("groups").document(groupId).set(group).await()
+            fs.collection("groupMembers").document(membershipId).set(member).await()
         } catch (e: Exception) {
             // Offline fallback
         }
@@ -251,7 +277,7 @@ class ExpenseRepository(context: Context) {
     suspend fun joinGroup(roomCode: String): Result<String> {
         val group = database.groupDao().getGroupByRoomCode(roomCode)
             ?: try {
-                val fs = firestore ?: return Result.failure(Exception("Offline and room not found locally"))
+                val fs = getFirestore()
                 val query = fs.collection("groups").whereEqualTo("roomCode", roomCode).get().await()
                 if (query.isEmpty) return Result.failure(Exception("Room not found with code: $roomCode"))
                 val doc = query.documents[0]
@@ -281,10 +307,9 @@ class ExpenseRepository(context: Context) {
         database.groupDao().insertGroup(updatedGroup)
 
         try {
-            firestore?.let { fs ->
-                fs.collection("groups").document(group.groupId).set(updatedGroup).await()
-                fs.collection("groupMembers").document(membershipId).set(member).await()
-            }
+            val fs = getFirestore()
+            fs.collection("groups").document(group.groupId).set(updatedGroup).await()
+            fs.collection("groupMembers").document(membershipId).set(member).await()
         } catch (e: Exception) {
             // Offline fallback
         }
@@ -320,7 +345,7 @@ class ExpenseRepository(context: Context) {
         )
         database.expenseDao().insertExpense(expense)
         try {
-            firestore?.collection("expenses")?.document(expenseId)?.set(expense)?.await()
+            getFirestore().collection("expenses").document(expenseId).set(expense).await()
         } catch (e: Exception) {
             // Offline
         }
@@ -329,7 +354,7 @@ class ExpenseRepository(context: Context) {
     suspend fun deleteExpense(expenseId: String) {
         database.expenseDao().deleteExpense(expenseId)
         try {
-            firestore?.collection("expenses")?.document(expenseId)?.delete()?.await()
+            getFirestore().collection("expenses").document(expenseId).delete().await()
         } catch (e: Exception) {}
     }
 
@@ -363,7 +388,7 @@ class ExpenseRepository(context: Context) {
         )
         database.settlementDao().insertSettlement(settlement)
         try {
-            firestore?.collection("settlements")?.document(settlementId)?.set(settlement)?.await()
+            getFirestore().collection("settlements").document(settlementId).set(settlement).await()
         } catch (e: Exception) {}
     }
 
