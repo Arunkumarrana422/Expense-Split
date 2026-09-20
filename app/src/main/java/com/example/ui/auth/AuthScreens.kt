@@ -462,7 +462,7 @@ fun ForgotPasswordScreen(
                             if (result.isSuccess) {
                                 successMessage = "Password reset link sent to your email!"
                             } else {
-                                errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to send reset link. Please check your email address."
+                                errorMessage = "Enter correct E-mail"
                             }
                         }
                     },

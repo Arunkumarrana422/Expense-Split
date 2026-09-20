@@ -392,7 +392,7 @@ fun OverviewTab(
                                     group?.roomCode?.let { code ->
                                         val sendIntent = android.content.Intent().apply {
                                             action = android.content.Intent.ACTION_SEND
-                                            putExtra(android.content.Intent.EXTRA_TEXT, "Join my expense room on SplitEase! Room Code: $code")
+                                            putExtra(android.content.Intent.EXTRA_TEXT, "Join my expense room on Expense Splitter! Room Code: $code")
                                             type = "text/plain"
                                         }
                                         val shareIntent = android.content.Intent.createChooser(sendIntent, null)

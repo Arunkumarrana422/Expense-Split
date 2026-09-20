@@ -57,7 +57,7 @@ fun SplashOnboardingScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = "SplitEase",
+                    text = "Expense Splitter",
                     style = MaterialTheme.typography.headlineLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
