@@ -614,8 +614,28 @@ class ExpenseRepository(private val context: Context) {
         return database.notificationDao().getNotificationsForUser(userId)
     }
 
-    suspend fun clearNotifications() {
+    suspend fun deleteNotification(notificationId: String) {
+        database.notificationDao().deleteNotification(notificationId)
+        try {
+            dbRef.child("notifications").child(notificationId).removeValue().await()
+        } catch (e: Exception) {}
+    }
+
+    suspend fun clearNotifications(userId: String = "") {
         database.notificationDao().clearAll()
+        try {
+            if (userId.isNotBlank()) {
+                val snapshot = dbRef.child("notifications").get().await()
+                snapshot.children.forEach { child ->
+                    val notif = child.getValue(NotificationEntity::class.java)
+                    if (notif != null && (notif.recipientUserId == userId || notif.recipientUserId == "ALL" || notif.recipientUserId == "" || notif.senderUserId == userId)) {
+                        child.ref.removeValue().await()
+                    }
+                }
+            } else {
+                dbRef.child("notifications").removeValue().await()
+            }
+        } catch (e: Exception) {}
     }
 
     fun getMembers(groupId: String): Flow<List<GroupMemberEntity>> {

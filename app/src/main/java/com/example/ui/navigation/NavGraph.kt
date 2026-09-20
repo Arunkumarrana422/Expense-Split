@@ -299,6 +299,7 @@ fun AppNavGraph(
                 val notifications by viewModel.notifications.collectAsStateWithLifecycle()
                 NotificationsScreen(
                     notifications = notifications,
+                    onDeleteNotification = { id -> viewModel.deleteNotification(id) },
                     onClearAll = { viewModel.clearNotifications() },
                     onBack = { navController.popBackStack() }
                 )

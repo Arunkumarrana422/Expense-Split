@@ -220,9 +220,15 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun deleteNotification(notificationId: String) {
+        viewModelScope.launch {
+            repository.deleteNotification(notificationId)
+        }
+    }
+
     fun clearNotifications() {
         viewModelScope.launch {
-            repository.clearNotifications()
+            repository.clearNotifications(currentUserId)
         }
     }
 

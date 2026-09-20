@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.ReceiptLong
@@ -29,10 +30,13 @@ import java.util.*
 @Composable
 fun NotificationsScreen(
     notifications: List<NotificationEntity>,
+    onDeleteNotification: (String) -> Unit,
     onClearAll: () -> Unit,
     onBack: () -> Unit
 ) {
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
+    var showClearAllDialog by remember { mutableStateOf(false) }
+    var notificationToDelete by remember { mutableStateOf<NotificationEntity?>(null) }
 
     Scaffold(
         topBar = {
@@ -46,10 +50,11 @@ fun NotificationsScreen(
                 },
                 actions = {
                     if (notifications.isNotEmpty()) {
-                        IconButton(onClick = onClearAll) {
+                        IconButton(onClick = { showClearAllDialog = true }) {
                             Icon(
                                 imageVector = Icons.Default.DeleteSweep,
-                                contentDescription = "Clear All Notifications"
+                                contentDescription = "Clear All Notifications",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -105,9 +110,85 @@ fun NotificationsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(notifications, key = { it.id }) { notif ->
-                    NotificationCard(notification = notif, dateFormat = dateFormat)
+                    NotificationCard(
+                        notification = notif,
+                        dateFormat = dateFormat,
+                        onDeleteClick = { notificationToDelete = notif }
+                    )
                 }
             }
+        }
+
+        // Single Notification Deletion Confirmation Dialog
+        if (notificationToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { notificationToDelete = null },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                },
+                title = {
+                    Text("Delete Notification")
+                },
+                text = {
+                    Text("Are you sure you want to delete this notification? It will be removed from your device and cloud storage.")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            notificationToDelete?.let { onDeleteNotification(it.id) }
+                            notificationToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Delete")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { notificationToDelete = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+
+        // Clear All Confirmation Dialog
+        if (showClearAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearAllDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.DeleteSweep,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                },
+                title = {
+                    Text("Clear All Notifications")
+                },
+                text = {
+                    Text("Are you sure you want to clear all notifications? This will delete them from both your device and cloud database.")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onClearAll()
+                            showClearAllDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Text("Clear All")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearAllDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }
@@ -115,25 +196,26 @@ fun NotificationsScreen(
 @Composable
 fun NotificationCard(
     notification: NotificationEntity,
-    dateFormat: SimpleDateFormat
+    dateFormat: SimpleDateFormat,
+    onDeleteClick: () -> Unit
 ) {
     val isWarning = notification.type == "WARNING"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isWarning) {
-                MaterialTheme.colorScheme.errorContainer
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f)
             } else {
                 MaterialTheme.colorScheme.surface
             }
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (isWarning) MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
-            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            if (isWarning) MaterialTheme.colorScheme.error.copy(alpha = 0.25f)
+            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
         )
     ) {
         Column(
@@ -146,8 +228,9 @@ fun NotificationCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(
                         modifier = Modifier
@@ -172,7 +255,7 @@ fun NotificationCard(
                             text = notification.title,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = if (isWarning) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (isWarning) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface
                         )
                         if (isWarning) {
                             Text(
@@ -185,12 +268,28 @@ fun NotificationCard(
                     }
                 }
 
-                Text(
-                    text = dateFormat.format(Date(notification.timestamp)),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isWarning) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
-                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = dateFormat.format(Date(notification.timestamp)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isWarning) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    )
+                    IconButton(
+                        onClick = onDeleteClick,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            tint = if (isWarning) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
 
             Text(
