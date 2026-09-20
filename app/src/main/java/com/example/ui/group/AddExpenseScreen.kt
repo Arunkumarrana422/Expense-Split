@@ -48,6 +48,7 @@ fun AddExpenseScreen(
     Scaffold(
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(top = 8.dp, bottom = 0.dp),
                 title = { Text("Add Expense") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -61,7 +62,7 @@ fun AddExpenseScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             OutlinedTextField(
