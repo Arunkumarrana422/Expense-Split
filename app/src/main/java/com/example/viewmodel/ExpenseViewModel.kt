@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.ExpenseEntity
 import com.example.data.local.GroupEntity
 import com.example.data.local.GroupMemberEntity
+import com.example.data.local.NotificationEntity
 import com.example.data.local.PersonalExpenseEntity
 import com.example.data.local.SettlementEntity
 import com.example.data.repository.ExpenseRepository
@@ -60,6 +61,7 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         _allGroups.value = emptyList()
         _allGroupExpenses.value = emptyList()
         _personalExpenses.value = emptyList()
+        _notifications.value = emptyList()
         loadUserData()
     }
 
@@ -84,9 +86,13 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     private val _personalExpenses = MutableStateFlow<List<PersonalExpenseEntity>>(emptyList())
     val personalExpenses: StateFlow<List<PersonalExpenseEntity>> = _personalExpenses.asStateFlow()
 
+    private val _notifications = MutableStateFlow<List<NotificationEntity>>(emptyList())
+    val notifications: StateFlow<List<NotificationEntity>> = _notifications.asStateFlow()
+
     private var groupsJob: Job? = null
     private var groupExpensesJob: Job? = null
     private var personalExpensesJob: Job? = null
+    private var notificationsJob: Job? = null
 
     init {
         loadUserData()
@@ -98,6 +104,7 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             viewModelScope.launch {
                 repository.syncDataFromFirestore(userId)
             }
+            repository.startNotificationListener(userId)
         }
         groupsJob?.cancel()
         groupsJob = viewModelScope.launch {
@@ -117,6 +124,13 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         personalExpensesJob = viewModelScope.launch {
             repository.getPersonalExpenses(userId).collect { expenses ->
                 _personalExpenses.value = expenses
+            }
+        }
+
+        notificationsJob?.cancel()
+        notificationsJob = viewModelScope.launch {
+            repository.getNotificationsForUser(userId).collect { notifs ->
+                _notifications.value = notifs
             }
         }
     }
@@ -147,16 +161,38 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         return repository.getSettlements(groupId)
     }
 
-    fun addExpense(groupId: String, title: String, amount: Long, currency: String, category: String, splitMethod: String, notes: String, onComplete: () -> Unit) {
+    fun addExpense(
+        groupId: String,
+        title: String,
+        amount: Long,
+        currency: String,
+        category: String,
+        splitMethod: String,
+        notes: String,
+        groupName: String = "",
+        onComplete: () -> Unit
+    ) {
         viewModelScope.launch {
-            repository.addExpense(groupId, title, amount, currency, category, splitMethod, notes)
+            repository.addExpense(groupId, title, amount, currency, category, splitMethod, notes, groupName)
             onComplete()
+        }
+    }
+
+    fun deleteExpense(expense: ExpenseEntity, groupName: String = "") {
+        viewModelScope.launch {
+            repository.deleteExpense(expense, groupName)
         }
     }
 
     fun deleteExpense(expenseId: String) {
         viewModelScope.launch {
             repository.deleteExpense(expenseId)
+        }
+    }
+
+    fun clearNotifications() {
+        viewModelScope.launch {
+            repository.clearNotifications()
         }
     }
 

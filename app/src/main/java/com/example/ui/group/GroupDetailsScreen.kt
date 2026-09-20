@@ -30,11 +30,11 @@ fun GroupDetailsScreen(
     settlements: List<SettlementEntity>,
     onAddExpense: () -> Unit,
     onAddSettlement: () -> Unit,
-    onDeleteExpense: (String) -> Unit,
+    onDeleteExpense: (ExpenseEntity) -> Unit,
     onBack: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
-    var expenseToDeleteId by remember { mutableStateOf<String?>(null) }
+    var expenseToDelete by remember { mutableStateOf<ExpenseEntity?>(null) }
     var isDeleting by remember { mutableStateOf(false) }
     val tabs = listOf("Overview", "Expenses", "Members", "Balances", "Activity")
 
@@ -84,8 +84,8 @@ fun GroupDetailsScreen(
             }
 
             when (selectedTab) {
-                0 -> OverviewTab(group, expenses, members)
-                1 -> ExpensesTab(expenses, onDelete = { expenseToDeleteId = it })
+                0 -> OverviewTab(group, expenses, members, onDelete = { expenseToDelete = it })
+                1 -> ExpensesTab(expenses, onDelete = { expenseToDelete = it })
                 2 -> MembersTab(members)
                 3 -> BalancesTab(expenses, members)
                 4 -> ActivityTab(expenses, settlements)
@@ -93,19 +93,38 @@ fun GroupDetailsScreen(
         }
     }
 
-    if (expenseToDeleteId != null) {
+    if (expenseToDelete != null) {
         AlertDialog(
-            onDismissRequest = { if (!isDeleting) expenseToDeleteId = null },
-            title = { Text("Delete Expense") },
-            text = { Text("Are you sure you want to delete this expense?") },
+            onDismissRequest = { if (!isDeleting) expenseToDelete = null },
+            title = { Text("Delete Expense?") },
+            text = {
+                val exp = expenseToDelete
+                if (exp != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Are you sure you want to delete '${exp.title}' (₹${exp.totalAmountInMinorUnits / 100.0})?")
+                        Text(
+                            "Paid by: ${exp.paidByName}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "⚠️ Notice: If you delete another member's or admin's expense, a personal warning notification with your name and details will be sent directly to their phone.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                } else {
+                    Text("Are you sure you want to delete this expense?")
+                }
+            },
             confirmButton = {
                 Button(
                     onClick = {
-                        expenseToDeleteId?.let { id ->
+                        expenseToDelete?.let { exp ->
                             isDeleting = true
-                            onDeleteExpense(id)
+                            onDeleteExpense(exp)
                             isDeleting = false
-                            expenseToDeleteId = null
+                            expenseToDelete = null
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
@@ -118,13 +137,13 @@ fun GroupDetailsScreen(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Text("Delete")
+                        Text("Delete Expense")
                     }
                 }
             },
             dismissButton = {
                 TextButton(
-                    onClick = { expenseToDeleteId = null },
+                    onClick = { expenseToDelete = null },
                     enabled = !isDeleting
                 ) {
                     Text("Cancel")
@@ -135,7 +154,12 @@ fun GroupDetailsScreen(
 }
 
 @Composable
-fun OverviewTab(group: GroupEntity?, expenses: List<ExpenseEntity>, members: List<GroupMemberEntity>) {
+fun OverviewTab(
+    group: GroupEntity?,
+    expenses: List<ExpenseEntity>,
+    members: List<GroupMemberEntity>,
+    onDelete: (ExpenseEntity) -> Unit
+) {
     val totalSpending = expenses.sumOf { it.totalAmountInMinorUnits }
 
     LazyColumn(
@@ -172,14 +196,14 @@ fun OverviewTab(group: GroupEntity?, expenses: List<ExpenseEntity>, members: Lis
             }
         } else {
             items(expenses.take(5)) { expense ->
-                ExpenseCardItem(expense = expense, onDelete = {})
+                ExpenseCardItem(expense = expense, onDelete = { onDelete(expense) })
             }
         }
     }
 }
 
 @Composable
-fun ExpensesTab(expenses: List<ExpenseEntity>, onDelete: (String) -> Unit) {
+fun ExpensesTab(expenses: List<ExpenseEntity>, onDelete: (ExpenseEntity) -> Unit) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -192,7 +216,7 @@ fun ExpensesTab(expenses: List<ExpenseEntity>, onDelete: (String) -> Unit) {
             }
         } else {
             items(expenses) { expense ->
-                ExpenseCardItem(expense = expense, onDelete = { onDelete(expense.expenseId) })
+                ExpenseCardItem(expense = expense, onDelete = { onDelete(expense) })
             }
         }
     }

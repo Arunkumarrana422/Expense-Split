@@ -79,3 +79,21 @@ data class PersonalExpenseEntity(
     val date: Long = System.currentTimeMillis(),
     val notes: String = ""
 )
+
+@Entity(tableName = "notifications")
+data class NotificationEntity(
+    @PrimaryKey val id: String = "",
+    val recipientUserId: String = "", // specific userId for personal notifications, or "ALL" / ""
+    val senderUserId: String = "",
+    val senderUserName: String = "",
+    val groupId: String = "",
+    val groupName: String = "",
+    val title: String = "",
+    val message: String = "",
+    val type: String = "INFO", // "INFO", "WARNING"
+    val expenseTitle: String = "",
+    val amount: Double = 0.0,
+    val timestamp: Long = System.currentTimeMillis(),
+    val isRead: Boolean = false
+)
+

@@ -86,6 +86,21 @@ interface PersonalExpenseDao {
     suspend fun updatePersonalExpenseUserId(oldUserId: String, newUserId: String)
 }
 
+@Dao
+interface NotificationDao {
+    @Query("SELECT * FROM notifications WHERE recipientUserId = :userId OR recipientUserId = 'ALL' OR recipientUserId = '' ORDER BY timestamp DESC")
+    fun getNotificationsForUser(userId: String): Flow<List<NotificationEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNotification(notification: NotificationEntity)
+
+    @Query("DELETE FROM notifications WHERE id = :id")
+    suspend fun deleteNotification(id: String)
+
+    @Query("DELETE FROM notifications")
+    suspend fun clearAll()
+}
+
 @Database(
     entities = [
         UserEntity::class,
@@ -93,9 +108,10 @@ interface PersonalExpenseDao {
         GroupMemberEntity::class,
         ExpenseEntity::class,
         SettlementEntity::class,
-        PersonalExpenseEntity::class
+        PersonalExpenseEntity::class,
+        NotificationEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -103,4 +119,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun groupDao(): GroupDao
     abstract fun settlementDao(): SettlementDao
     abstract fun personalExpenseDao(): PersonalExpenseDao
+    abstract fun notificationDao(): NotificationDao
 }

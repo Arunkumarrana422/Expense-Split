@@ -229,16 +229,17 @@ fun AppNavGraph(viewModel: ExpenseViewModel) {
                     settlements = settlements,
                     onAddExpense = { navController.navigate(Screen.AddExpense.createRoute(groupId)) },
                     onAddSettlement = { navController.navigate(Screen.Settlement.createRoute(groupId)) },
-                    onDeleteExpense = { expId -> viewModel.deleteExpense(expId) },
+                    onDeleteExpense = { exp -> viewModel.deleteExpense(exp, group?.groupName ?: "") },
                     onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.AddExpense.route) { backStackEntry ->
                 val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+                val group = groups.find { it.groupId == groupId }
                 AddExpenseScreen(
                     groupId = groupId,
                     onSave = { title, amount, currency, category, split ->
-                        viewModel.addExpense(groupId, title, amount, currency, category, split, "") {
+                        viewModel.addExpense(groupId, title, amount, currency, category, split, "", group?.groupName ?: "") {
                             navController.popBackStack()
                         }
                     },
@@ -282,7 +283,12 @@ fun AppNavGraph(viewModel: ExpenseViewModel) {
                 )
             }
             composable(Screen.Notifications.route) {
-                NotificationsScreen(onBack = { navController.popBackStack() })
+                val notifications by viewModel.notifications.collectAsStateWithLifecycle()
+                NotificationsScreen(
+                    notifications = notifications,
+                    onClearAll = { viewModel.clearNotifications() },
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable(Screen.Profile.route) {
                 ProfileScreen(
