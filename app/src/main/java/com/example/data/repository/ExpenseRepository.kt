@@ -295,8 +295,12 @@ class ExpenseRepository(private val context: Context) {
                             try {
                                 val userSnap = ref.child("users").child(member.userId).get().await()
                                 val pImg = userSnap.child("profileImage").getValue(String::class.java) ?: ""
+                                val fName = userSnap.child("fullName").getValue(String::class.java) ?: ""
                                 if (pImg.isNotBlank()) {
                                     member = member.copy(profileImage = pImg)
+                                }
+                                if (fName.isNotBlank()) {
+                                    member = member.copy(userName = fName)
                                 }
                             } catch (e: Exception) {}
                             memberList.add(member)
@@ -815,15 +819,20 @@ class ExpenseRepository(private val context: Context) {
 
     suspend fun requestDeleteGroup(groupId: String, groupName: String) {
         val existing = database.groupDao().getGroupById(groupId) ?: return
-        val updated = existing.copy(
-            isDeletionRequested = true,
-            deletionRequestedBy = currentUserId,
-            approvedDeletionUserIds = currentUserId
-        )
-        database.groupDao().insertGroup(updated)
-        try {
-            dbRef.child("groups").child(groupId).setValue(updated).await()
-        } catch (e: Exception) {}
+        val members = database.groupDao().getMembersForGroupList(groupId)
+        if (members.size <= 1) {
+            deleteGroupFully(groupId)
+        } else {
+            val updated = existing.copy(
+                isDeletionRequested = true,
+                deletionRequestedBy = currentUserId,
+                approvedDeletionUserIds = currentUserId
+            )
+            database.groupDao().insertGroup(updated)
+            try {
+                dbRef.child("groups").child(groupId).setValue(updated).await()
+            } catch (e: Exception) {}
+        }
     }
 
     suspend fun approveGroupDeletion(groupId: String) {

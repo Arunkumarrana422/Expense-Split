@@ -344,20 +344,11 @@ fun SettlementScreen(
                         ) {
                             Text("Who Paid?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.errorContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = (selectedPayer?.userName ?: "P").take(1).uppercase(),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    color = MaterialTheme.colorScheme.onErrorContainer
-                                )
-                            }
+                            com.example.ui.common.UserAvatar(
+                                userName = selectedPayer?.userName ?: "P",
+                                base64Photo = selectedPayer?.profileImage ?: "",
+                                size = 46.dp
+                            )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = selectedPayer?.userName ?: "Payer",
@@ -404,20 +395,11 @@ fun SettlementScreen(
                         ) {
                             Text("Who Received?", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = (selectedReceiver?.userName ?: "R").take(1).uppercase(),
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 18.sp,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
+                            com.example.ui.common.UserAvatar(
+                                userName = selectedReceiver?.userName ?: "R",
+                                base64Photo = selectedReceiver?.profileImage ?: "",
+                                size = 46.dp
+                            )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = selectedReceiver?.userName ?: "Receiver",
