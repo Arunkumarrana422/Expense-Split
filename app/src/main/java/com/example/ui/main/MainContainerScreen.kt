@@ -1,5 +1,6 @@
 package com.example.ui.main
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
@@ -18,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.GroupEntity
 import com.example.data.local.PersonalExpenseEntity
@@ -49,6 +51,7 @@ fun MainContainerScreen(
     val allGroupExpenses by viewModel.allGroupExpenses.collectAsStateWithLifecycle()
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0.dp),
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -98,7 +101,7 @@ fun MainContainerScreen(
             state = pagerState,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(bottom = padding.calculateBottomPadding())
         ) { page ->
             when (page) {
                 0 -> HomeScreen(
