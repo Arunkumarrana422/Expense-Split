@@ -52,7 +52,10 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun AppNavGraph(viewModel: ExpenseViewModel) {
+fun AppNavGraph(
+    viewModel: ExpenseViewModel,
+    initialTargetScreen: String? = null
+) {
     val navController = rememberNavController()
     val groups by viewModel.allGroups.collectAsStateWithLifecycle()
     val personalExpenses by viewModel.personalExpenses.collectAsStateWithLifecycle()
@@ -62,6 +65,12 @@ fun AppNavGraph(viewModel: ExpenseViewModel) {
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    LaunchedEffect(initialTargetScreen, viewModel.isLoggedIn) {
+        if (viewModel.isLoggedIn && initialTargetScreen == "notifications") {
+            navController.navigate(Screen.Notifications.route)
+        }
+    }
 
     val showBottomBar = currentRoute in listOf(
         Screen.Home.route,

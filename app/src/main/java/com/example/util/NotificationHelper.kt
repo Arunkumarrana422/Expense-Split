@@ -18,6 +18,8 @@ object NotificationHelper {
     private const val CHANNEL_ID = "expense_notifications_channel"
     private const val CHANNEL_NAME = "Expense & Split Alerts"
     private const val CHANNEL_DESC = "Notifications for added expenses and deletion warnings"
+    private const val PREFS_NAME = "shown_notifications_prefs"
+    private const val KEY_SHOWN_IDS = "shown_notif_ids"
 
     fun initNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -33,13 +35,41 @@ object NotificationHelper {
         }
     }
 
+    private fun isNotificationAlreadyShown(context: Context, notifId: String): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val set = prefs.getStringSet(KEY_SHOWN_IDS, emptySet()) ?: emptySet()
+        return set.contains(notifId)
+    }
+
+    fun markNotificationShown(context: Context, notifId: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val set = prefs.getStringSet(KEY_SHOWN_IDS, emptySet())?.toMutableSet() ?: mutableSetOf()
+        set.add(notifId)
+        // Keep set size reasonable (last 100 entries)
+        if (set.size > 150) {
+            val trimmed = set.toList().takeLast(100).toSet()
+            prefs.edit().putStringSet(KEY_SHOWN_IDS, trimmed).apply()
+        } else {
+            prefs.edit().putStringSet(KEY_SHOWN_IDS, set).apply()
+        }
+    }
+
     fun showDeviceNotification(
         context: Context,
+        notificationUniqueId: String = "",
         id: Int = (System.currentTimeMillis() % 100000).toInt(),
         title: String,
         message: String,
         isWarning: Boolean = false
     ) {
+        // Prevent repeated/spam notifications
+        if (notificationUniqueId.isNotBlank()) {
+            if (isNotificationAlreadyShown(context, notificationUniqueId)) {
+                return
+            }
+            markNotificationShown(context, notificationUniqueId)
+        }
+
         initNotificationChannel(context)
 
         // Check POST_NOTIFICATIONS permission on Android 13+
@@ -50,7 +80,8 @@ object NotificationHelper {
         }
 
         val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra("navigate_to", "notifications")
         }
         val pendingIntent = PendingIntent.getActivity(
             context,
@@ -78,9 +109,11 @@ object NotificationHelper {
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         try {
-            notificationManager?.notify(id, builder.build())
+            val notifyId = if (notificationUniqueId.isNotBlank()) notificationUniqueId.hashCode() else id
+            notificationManager?.notify(notifyId, builder.build())
         } catch (e: Exception) {
             // Security or other exception
         }
     }
 }
+

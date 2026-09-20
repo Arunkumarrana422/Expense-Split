@@ -308,24 +308,29 @@ class ExpenseRepository(private val context: Context) {
 
     private var activeNotificationListener: ChildEventListener? = null
     private var activeGroupListeners = mutableMapOf<String, ValueEventListener>()
+    private var notificationListenerStartTime = System.currentTimeMillis()
 
     fun startNotificationListener(userId: String) {
         if (userId.isBlank()) return
         try {
             activeNotificationListener?.let { dbRef.child("notifications").removeEventListener(it) }
+            notificationListenerStartTime = System.currentTimeMillis()
 
             val listener = object : ChildEventListener {
                 override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
                     val notif = snapshot.getValue(NotificationEntity::class.java) ?: return
-                    if (notif.recipientUserId == userId || notif.recipientUserId == "ALL" || notif.recipientUserId.isBlank()) {
+                    val isTargetRecipient = notif.recipientUserId == userId || notif.recipientUserId == "ALL" || notif.recipientUserId.isBlank()
+                    if (isTargetRecipient) {
                         CoroutineScope(Dispatchers.IO).launch {
                             database.notificationDao().insertNotification(notif)
                         }
                         val isOtherSender = notif.senderUserId.isNotBlank() && notif.senderUserId != currentUserId
-                        val isRecent = (System.currentTimeMillis() - notif.timestamp) < 300_000 // 5 minutes
-                        if (isOtherSender && isRecent) {
+                        // Only alert if it's from another person AND created after listener started (or within last 30 seconds)
+                        val isNewEvent = notif.timestamp >= (notificationListenerStartTime - 30_000L)
+                        if (isOtherSender && isNewEvent) {
                             NotificationHelper.showDeviceNotification(
                                 context = context,
+                                notificationUniqueId = notif.id,
                                 title = notif.title,
                                 message = notif.message,
                                 isWarning = notif.type == "WARNING"
@@ -542,14 +547,6 @@ class ExpenseRepository(private val context: Context) {
         try {
             dbRef.child("notifications").child(notifId).setValue(notif).await()
         } catch (e: Exception) {}
-
-        // Trigger mobile phone system notification
-        NotificationHelper.showDeviceNotification(
-            context = context,
-            title = "New Expense Added",
-            message = "$currentUserName added '$title' of ₹$amount$groupSuffix",
-            isWarning = false
-        )
     }
 
     suspend fun deleteExpense(expense: ExpenseEntity, groupName: String = "") {

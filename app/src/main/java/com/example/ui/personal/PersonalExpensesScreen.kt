@@ -26,6 +26,9 @@ fun PersonalExpensesScreen(
     var isDeleting by remember { mutableStateOf(false) }
 
     val totalPersonal = personalExpenses.sumOf { it.amount }
+    val sortedPersonalExpenses = remember(personalExpenses) {
+        personalExpenses.sortedByDescending { it.date }
+    }
 
     Scaffold(
         topBar = {
@@ -71,12 +74,12 @@ fun PersonalExpensesScreen(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (personalExpenses.isEmpty()) {
+                if (sortedPersonalExpenses.isEmpty()) {
                     item {
                         Text("No personal expenses recorded.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 } else {
-                    items(personalExpenses) { expense ->
+                    items(sortedPersonalExpenses) { expense ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp)

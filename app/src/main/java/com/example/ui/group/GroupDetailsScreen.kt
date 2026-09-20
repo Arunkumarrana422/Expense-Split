@@ -212,18 +212,21 @@ fun OverviewTab(
 
 @Composable
 fun ExpensesTab(expenses: List<ExpenseEntity>, onDelete: (ExpenseEntity) -> Unit) {
+    val sortedExpenses = remember(expenses) {
+        expenses.sortedWith(compareByDescending<ExpenseEntity> { it.expenseDate }.thenByDescending { it.createdAt })
+    }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (expenses.isEmpty()) {
+        if (sortedExpenses.isEmpty()) {
             item {
                 Text("No expenses found.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            items(expenses) { expense ->
+            items(sortedExpenses) { expense ->
                 ExpenseCardItem(expense = expense, onDelete = { onDelete(expense) })
             }
         }

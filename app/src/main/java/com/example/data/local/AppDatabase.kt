@@ -10,17 +10,17 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ExpenseDao {
-    @Query("SELECT * FROM expenses WHERE groupId = :groupId ORDER BY expenseDate DESC")
+    @Query("SELECT * FROM expenses WHERE groupId = :groupId ORDER BY expenseDate DESC, createdAt DESC")
     fun getExpensesForGroup(groupId: String): Flow<List<ExpenseEntity>>
 
-    @Query("SELECT * FROM expenses ORDER BY expenseDate DESC")
+    @Query("SELECT * FROM expenses ORDER BY expenseDate DESC, createdAt DESC")
     fun getAllExpenses(): Flow<List<ExpenseEntity>>
 
     @Query("""
         SELECT e.* FROM expenses e
         INNER JOIN group_members m ON e.groupId = m.groupId
         WHERE m.userId = :userId
-        ORDER BY e.expenseDate DESC
+        ORDER BY e.expenseDate DESC, e.createdAt DESC
     """)
     fun getExpensesForUser(userId: String): Flow<List<ExpenseEntity>>
 
