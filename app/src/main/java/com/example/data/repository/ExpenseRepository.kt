@@ -222,15 +222,6 @@ class ExpenseRepository(private val context: Context) {
                     if (group != null && group.groupId.isNotBlank()) {
                         database.groupDao().insertGroup(group)
                         groupIdsToSync.add(group.groupId)
-                        // Ensure creator has a member entry locally
-                        val creatorMember = GroupMemberEntity(
-                            membershipId = "${group.groupId}_$userId",
-                            groupId = group.groupId,
-                            userId = userId,
-                            userName = currentUserName.ifBlank { "User" },
-                            role = "ADMIN"
-                        )
-                        database.groupDao().insertMember(creatorMember)
                     }
                 }
             } catch (e: Exception) {}
@@ -249,6 +240,9 @@ class ExpenseRepository(private val context: Context) {
                         .whereEqualTo("groupId", groupId)
                         .get()
                         .await()
+                    if (!allMembersQuery.isEmpty) {
+                        database.groupDao().deleteMembersByGroupId(groupId)
+                    }
                     for (mDoc in allMembersQuery.documents) {
                         val m = mDoc.toObject(GroupMemberEntity::class.java)
                         if (m != null) {

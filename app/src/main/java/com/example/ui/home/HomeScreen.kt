@@ -85,6 +85,10 @@ fun HomeScreen(
             )
         }
     ) { padding ->
+        val distinctGroups = remember(groups) {
+            groups.distinctBy { it.groupId }
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -112,14 +116,14 @@ fun HomeScreen(
                     SummaryCard(
                         modifier = Modifier.weight(1f),
                         title = "Total Groups",
-                        value = "${groups.size}",
+                        value = "${distinctGroups.size}",
                         icon = Icons.Default.Group,
                         tint = MaterialTheme.colorScheme.primary
                     )
                     SummaryCard(
                         modifier = Modifier.weight(1f),
                         title = "Active Room",
-                        value = if (groups.isNotEmpty()) "Active" else "None",
+                        value = if (distinctGroups.isNotEmpty()) "Active" else "None",
                         icon = Icons.Default.CheckCircle,
                         tint = MaterialTheme.colorScheme.secondary
                     )
@@ -168,7 +172,7 @@ fun HomeScreen(
                 )
             }
 
-            if (groups.isEmpty()) {
+            if (distinctGroups.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
@@ -213,7 +217,7 @@ fun HomeScreen(
                     }
                 }
             } else {
-                items(groups) { group ->
+                items(distinctGroups, key = { it.groupId }) { group ->
                     GroupCard(group = group, onClick = { onGroupClick(group.groupId) })
                 }
             }

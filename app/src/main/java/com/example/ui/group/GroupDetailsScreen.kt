@@ -87,11 +87,15 @@ fun GroupDetailsScreen(
                 }
             }
 
+            val distinctMembers = remember(members) {
+                members.distinctBy { it.userId }
+            }
+
             when (selectedTab) {
-                0 -> OverviewTab(group, expenses, members, onDelete = { expenseToDelete = it })
+                0 -> OverviewTab(group, expenses, distinctMembers, onDelete = { expenseToDelete = it })
                 1 -> ExpensesTab(expenses, onDelete = { expenseToDelete = it })
-                2 -> MembersTab(members)
-                3 -> BalancesTab(expenses, members)
+                2 -> MembersTab(distinctMembers)
+                3 -> BalancesTab(expenses, distinctMembers)
                 4 -> ActivityTab(expenses, settlements)
             }
         }
@@ -285,7 +289,7 @@ fun MembersTab(members: List<GroupMemberEntity>) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(members) { member ->
+        items(members, key = { it.userId.ifBlank { it.membershipId } }) { member ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -356,7 +360,7 @@ fun BalancesTab(expenses: List<ExpenseEntity>, members: List<GroupMemberEntity>)
         item {
             Text(text = "Net Balances", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         }
-        items(members) { member ->
+        items(members, key = { it.userId.ifBlank { it.membershipId } }) { member ->
             val paid = paidMap[member.userId] ?: 0L
             val share = shareMap[member.userId] ?: 0L
             val net = paid - share

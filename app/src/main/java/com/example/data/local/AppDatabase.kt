@@ -37,7 +37,7 @@ interface GroupDao {
     fun getAllGroups(): Flow<List<GroupEntity>>
 
     @Query("""
-        SELECT g.* FROM groups g
+        SELECT DISTINCT g.* FROM groups g
         INNER JOIN group_members m ON g.groupId = m.groupId
         WHERE m.userId = :userId AND g.status = 'ACTIVE'
     """)
@@ -52,11 +52,17 @@ interface GroupDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGroup(group: GroupEntity)
 
-    @Query("SELECT * FROM group_members WHERE groupId = :groupId")
+    @Query("SELECT * FROM group_members WHERE groupId = :groupId GROUP BY userId")
     fun getMembersForGroup(groupId: String): Flow<List<GroupMemberEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMember(member: GroupMemberEntity)
+
+    @Query("DELETE FROM group_members WHERE groupId = :groupId")
+    suspend fun deleteMembersByGroupId(groupId: String)
+
+    @Query("DELETE FROM group_members WHERE groupId = :groupId AND userId = :userId")
+    suspend fun deleteMemberByGroupAndUser(groupId: String, userId: String)
 
     @Query("UPDATE group_members SET userId = :newUserId WHERE userId = :oldUserId")
     suspend fun updateMemberUserId(oldUserId: String, newUserId: String)
