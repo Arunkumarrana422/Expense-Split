@@ -14,6 +14,7 @@ import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.example.ui.auth.LoginScreen
 import com.example.ui.auth.RegisterScreen
+import com.example.ui.auth.ForgotPasswordScreen
 import com.example.ui.auth.SplashOnboardingScreen
 import com.example.ui.group.AddExpenseScreen
 import com.example.ui.group.GroupDetailsScreen
@@ -63,6 +64,7 @@ sealed class Screen(val route: String) {
     object Notifications : Screen("notifications")
     object Profile : Screen("profile")
     object ChangePassword : Screen("change_password")
+    object ForgotPassword : Screen("forgot_password")
     object Search : Screen("search")
 }
 
@@ -112,7 +114,15 @@ fun AppNavGraph(
                     }
                 },
                 onNavigateToRegister = { navController.navigate(Screen.Register.route) },
-                onForgotPassword = {}
+                onForgotPassword = { navController.navigate(Screen.ForgotPassword.route) }
+            )
+        }
+        composable(Screen.ForgotPassword.route) {
+            ForgotPasswordScreen(
+                onSendResetLink = { email: String, callback: (Result<Unit>) -> Unit ->
+                    viewModel.sendPasswordResetEmail(email, callback)
+                },
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.Register.route) {
@@ -153,6 +163,7 @@ fun AppNavGraph(
         }
             composable(Screen.CreateRoom.route) {
                 CreateRoomScreen(
+                    defaultCurrency = currency,
                     onCreate = { name, desc, currency, max, onFinished ->
                         viewModel.createGroup(name, desc, currency, max) { roomCode ->
                             onFinished()
@@ -191,6 +202,7 @@ fun AppNavGraph(
                     expenses = expenses,
                     members = members,
                     settlements = settlements,
+                    currentUserId = viewModel.currentUserId,
                     onAddExpense = { navController.navigate(Screen.AddExpense.createRoute(groupId)) },
                     onAddSettlement = { payerId, receiverId, amount ->
                         navController.navigate(Screen.Settlement.createRoute(groupId, payerId, receiverId, amount))

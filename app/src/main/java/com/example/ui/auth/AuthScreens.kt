@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
@@ -69,7 +70,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Sign in with your Firebase account",
+                text = "Sign in with email or password",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -227,14 +228,6 @@ fun RegisterScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Sign up with Firebase to manage shared expenses",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
             Spacer(modifier = Modifier.height(24.dp))
 
             OutlinedTextField(
@@ -362,6 +355,129 @@ fun RegisterScreen(
                     onBackToLogin()
                 }) {
                     Text("Login", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ForgotPasswordScreen(
+    onSendResetLink: (String, (Result<Unit>) -> Unit) -> Unit,
+    onBack: () -> Unit
+) {
+    var email by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var successMessage by remember { mutableStateOf<String?>(null) }
+
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+            },
+        color = MaterialTheme.colorScheme.background
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Reset Password", fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                )
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Forgot Password?",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Enter your registered email address and we will send you a reset link.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it; errorMessage = null; successMessage = null },
+                    label = { Text("Email Address") },
+                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                )
+
+                if (errorMessage != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = errorMessage!!, color = MaterialTheme.colorScheme.error)
+                }
+
+                if (successMessage != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = successMessage!!, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = {
+                        keyboardController?.hide()
+                        focusManager.clearFocus()
+                        if (email.isBlank()) {
+                            errorMessage = "Please enter your email address."
+                            return@Button
+                        }
+                        isLoading = true
+                        errorMessage = null
+                        successMessage = null
+                        onSendResetLink(email.trim()) { result ->
+                            isLoading = false
+                            if (result.isSuccess) {
+                                successMessage = "Password reset link sent to your email!"
+                            } else {
+                                errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to send reset link. Please check your email address."
+                            }
+                        }
+                    },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                    } else {
+                        Text("Send Reset Link", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

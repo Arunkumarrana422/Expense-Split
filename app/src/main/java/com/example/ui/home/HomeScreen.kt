@@ -428,7 +428,7 @@ fun GroupCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "${group.currentMemberCount}/${group.maximumMembers} members • Code: ${group.roomCode}",
+                        text = "${group.currentMemberCount}/${group.maximumMembers} members",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

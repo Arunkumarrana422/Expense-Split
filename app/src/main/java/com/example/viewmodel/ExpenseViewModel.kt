@@ -109,6 +109,13 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun sendPasswordResetEmail(email: String, onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val res = repository.sendPasswordResetEmail(email)
+            onResult(res)
+        }
+    }
+
     val currentUserId: String get() = repository.currentUserId
     val currentUserEmail: String get() = repository.currentUserEmail
     val currentUserName: String get() = repository.currentUserName

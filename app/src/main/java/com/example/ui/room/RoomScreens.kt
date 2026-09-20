@@ -21,14 +21,16 @@ import androidx.compose.ui.unit.sp
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateRoomScreen(
+    defaultCurrency: String = "INR",
     onCreate: (String, String, String, Int, () -> Unit) -> Unit,
     onBack: () -> Unit
 ) {
     var roomName by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var currency by remember { mutableStateOf("INR") }
+    var currency by remember { mutableStateOf(defaultCurrency) }
     var maxMembersStr by remember { mutableStateOf("5") }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -61,8 +63,8 @@ fun CreateRoomScreen(
         ) {
             OutlinedTextField(
                 value = roomName,
-                onValueChange = { roomName = it },
-                label = { Text("Room Name (e.g. Goa Trip, Apartment)") },
+                onValueChange = { roomName = it; errorMessage = null },
+                label = { Text("Room Name") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 singleLine = true
@@ -87,12 +89,21 @@ fun CreateRoomScreen(
 
             OutlinedTextField(
                 value = maxMembersStr,
-                onValueChange = { maxMembersStr = it },
+                onValueChange = { maxMembersStr = it; errorMessage = null },
                 label = { Text("Max Members (2 to 10)") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                singleLine = true
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
             )
+
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage!!,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -100,12 +111,19 @@ fun CreateRoomScreen(
                 onClick = {
                     keyboardController?.hide()
                     focusManager.clearFocus()
-                    val max = maxMembersStr.toIntOrNull() ?: 5
-                    if (roomName.isNotBlank()) {
-                        isLoading = true
-                        onCreate(roomName, description, currency, max) {
-                            isLoading = false
-                        }
+                    val max = maxMembersStr.toIntOrNull()
+                    if (roomName.isBlank()) {
+                        errorMessage = "Please enter a room name."
+                        return@Button
+                    }
+                    if (max == null || max < 2 || max > 10) {
+                        errorMessage = "Max members must be between 2 and 10."
+                        return@Button
+                    }
+                    isLoading = true
+                    errorMessage = null
+                    onCreate(roomName, description, currency, max) {
+                        isLoading = false
                     }
                 },
                 modifier = Modifier

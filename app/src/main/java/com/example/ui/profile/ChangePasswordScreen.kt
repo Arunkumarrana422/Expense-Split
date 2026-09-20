@@ -160,7 +160,7 @@ fun ChangePasswordScreen(
                             newPassword = ""
                             confirmPassword = ""
                         } else {
-                            errorMessage = result.exceptionOrNull()?.localizedMessage ?: "Failed to update password. Please check your old password."
+                            errorMessage = "Incorrect your old password."
                         }
                     }
                 },

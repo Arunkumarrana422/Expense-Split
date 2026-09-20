@@ -241,6 +241,15 @@ class ExpenseRepository(private val context: Context) {
         }
     }
 
+    suspend fun sendPasswordResetEmail(email: String): Result<Unit> {
+        return try {
+            getAuth().sendPasswordResetEmail(email).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     /**
      * Comprehensive synchronization from Firebase Realtime Database to local Room DB
      */

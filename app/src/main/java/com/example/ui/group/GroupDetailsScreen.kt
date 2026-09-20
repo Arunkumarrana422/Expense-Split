@@ -43,6 +43,7 @@ fun GroupDetailsScreen(
     expenses: List<ExpenseEntity>,
     members: List<GroupMemberEntity>,
     settlements: List<SettlementEntity>,
+    currentUserId: String = "",
     onAddExpense: () -> Unit,
     onAddSettlement: (payerId: String?, receiverId: String?, amount: Long?) -> Unit,
     onDeleteExpense: (ExpenseEntity) -> Unit,
@@ -181,7 +182,13 @@ fun GroupDetailsScreen(
                         expenses = expenses,
                         members = distinctMembers,
                         settlements = settlements,
-                        onDelete = { expenseToDelete = it },
+                        onDelete = { exp ->
+                            if (exp.paidByUserId == currentUserId) {
+                                onDeleteExpense(exp)
+                            } else {
+                                expenseToDelete = exp
+                            }
+                        },
                         onNavigateToSettlements = {
                             coroutineScope.launch { pagerState.animateScrollToPage(5) }
                         },
@@ -191,7 +198,13 @@ fun GroupDetailsScreen(
                     )
                     1 -> ExpensesTab(
                         expenses = expenses,
-                        onDelete = { expenseToDelete = it }
+                        onDelete = { exp ->
+                            if (exp.paidByUserId == currentUserId) {
+                                onDeleteExpense(exp)
+                            } else {
+                                expenseToDelete = exp
+                            }
+                        }
                     )
                     2 -> MembersTab(distinctMembers)
                     3 -> BalancesTab(
