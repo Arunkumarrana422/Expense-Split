@@ -84,7 +84,7 @@ fun SettlementScreen(
 
             Button(
                 onClick = {
-                    val amt = ((amountStr.toDoubleOrNull() ?: 0.0) * 100).toLong()
+                    val amt = (amountStr.toDoubleOrNull() ?: 0.0).toLong()
                     if (receiverName.isNotBlank() && amt > 0) {
                         onRecordSettlement("receiver_id_placeholder", receiverName, amt, paymentMethod, notes)
                     }

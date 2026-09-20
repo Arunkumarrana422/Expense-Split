@@ -519,7 +519,7 @@ class ExpenseRepository(private val context: Context) {
 
         // Notification: Show in notifications and trigger phone notification
         val notifId = UUID.randomUUID().toString()
-        val amountFormatted = amount / 100.0
+        val amountFormatted = amount.toDouble()
         val resolvedGroupName = groupName.ifBlank {
             database.groupDao().getGroupById(groupId)?.groupName ?: ""
         }
@@ -532,7 +532,7 @@ class ExpenseRepository(private val context: Context) {
             groupId = groupId,
             groupName = resolvedGroupName,
             title = "💸 New Expense Added",
-            message = "$currentUserName added '$title' (₹$amountFormatted)$groupSuffix.",
+            message = "$currentUserName added '$title' (₹$amount)$groupSuffix.",
             type = "INFO",
             expenseTitle = title,
             amount = amountFormatted,
@@ -547,7 +547,7 @@ class ExpenseRepository(private val context: Context) {
         NotificationHelper.showDeviceNotification(
             context = context,
             title = "New Expense Added",
-            message = "$currentUserName added '$title' of ₹$amountFormatted$groupSuffix",
+            message = "$currentUserName added '$title' of ₹$amount$groupSuffix",
             isWarning = false
         )
     }
@@ -560,7 +560,7 @@ class ExpenseRepository(private val context: Context) {
 
         val notifId = UUID.randomUUID().toString()
         val deleter = currentUserName.ifBlank { "A group member" }
-        val amountFormatted = expense.totalAmountInMinorUnits / 100.0
+        val amountFormatted = expense.totalAmountInMinorUnits.toDouble()
         val resolvedGroupName = groupName.ifBlank {
             database.groupDao().getGroupById(expense.groupId)?.groupName ?: ""
         }
@@ -577,7 +577,7 @@ class ExpenseRepository(private val context: Context) {
                 groupId = expense.groupId,
                 groupName = resolvedGroupName,
                 title = "⚠️ Warning: Expense Deleted",
-                message = "Warning: $deleter deleted your expense '${expense.title}' (₹$amountFormatted)$groupSuffix.",
+                message = "Warning: $deleter deleted your expense '${expense.title}' (₹${expense.totalAmountInMinorUnits})$groupSuffix.",
                 type = "WARNING",
                 expenseTitle = expense.title,
                 amount = amountFormatted,
@@ -596,7 +596,7 @@ class ExpenseRepository(private val context: Context) {
                 groupId = expense.groupId,
                 groupName = resolvedGroupName,
                 title = "Expense Deleted",
-                message = "You deleted expense '${expense.title}' (₹$amountFormatted)$groupSuffix.",
+                message = "You deleted expense '${expense.title}' (₹${expense.totalAmountInMinorUnits})$groupSuffix.",
                 type = "INFO",
                 expenseTitle = expense.title,
                 amount = amountFormatted,

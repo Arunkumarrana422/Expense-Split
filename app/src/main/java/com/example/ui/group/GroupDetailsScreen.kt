@@ -109,7 +109,7 @@ fun GroupDetailsScreen(
                 val exp = expenseToDelete
                 if (exp != null) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Are you sure you want to delete '${exp.title}' (₹${exp.totalAmountInMinorUnits / 100.0})?")
+                        Text("Are you sure you want to delete '${exp.title}' (₹${exp.totalAmountInMinorUnits})?")
                         Text(
                             "Paid by: ${exp.paidByName}",
                             style = MaterialTheme.typography.bodyMedium,
@@ -187,7 +187,7 @@ fun OverviewTab(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(text = "Total Group Spending", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text(text = "₹${totalSpending / 100.0}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text(text = "₹$totalSpending", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(text = "Room Code: ${group?.roomCode ?: ""} • Members: ${members.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
@@ -268,7 +268,7 @@ fun ExpenseCardItem(expense: ExpenseEntity, onDelete: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "₹${expense.totalAmountInMinorUnits / 100.0}",
+                    text = "₹${expense.totalAmountInMinorUnits}",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -379,7 +379,7 @@ fun BalancesTab(expenses: List<ExpenseEntity>, members: List<GroupMemberEntity>)
                 ) {
                     Text(text = member.userName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        text = if (net >= 0) "+₹${net / 100.0} (Gets back)" else "-₹${-net / 100.0} (Owes)",
+                        text = if (net >= 0) "+₹$net (Gets back)" else "-₹${-net} (Owes)",
                         fontWeight = FontWeight.Bold,
                         color = if (net >= 0) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.error
                     )
@@ -413,7 +413,7 @@ fun ActivityTab(expenses: List<ExpenseEntity>, settlements: List<SettlementEntit
                     Icon(imageVector = Icons.Default.Receipt, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                     Column {
                         Text(text = "Expense added: ${exp.title}", fontWeight = FontWeight.Bold)
-                        Text(text = "₹${exp.totalAmountInMinorUnits / 100.0} paid by ${exp.paidByName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(text = "₹${exp.totalAmountInMinorUnits} paid by ${exp.paidByName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

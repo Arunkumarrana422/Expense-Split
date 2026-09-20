@@ -128,7 +128,7 @@ fun AddPersonalExpenseScreen(
 
             Button(
                 onClick = {
-                    val amt = ((amountStr.toDoubleOrNull() ?: 0.0) * 100).toLong()
+                    val amt = (amountStr.toDoubleOrNull() ?: 0.0).toLong()
                     if (title.isNotBlank() && amt > 0) {
                         isLoading = true
                         onSave(title, amt, category, notes)

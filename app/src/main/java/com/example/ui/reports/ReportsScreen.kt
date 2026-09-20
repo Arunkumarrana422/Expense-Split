@@ -54,7 +54,7 @@ fun ReportsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Total Analytics Spending", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("₹${totalSpending / 100.0}", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text("₹$totalSpending", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 }
             }
 
@@ -77,7 +77,7 @@ fun ReportsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(cat, fontWeight = FontWeight.Medium)
-                                Text("₹${catTotal / 100.0}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                                Text("₹$catTotal", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
                             }
                         }
                     }
