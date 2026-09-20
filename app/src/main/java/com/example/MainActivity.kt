@@ -124,5 +124,16 @@ class MainActivity : ComponentActivity() {
             initialDestination.value = navExtra
         }
     }
+
+    private var backPressedTime = 0L
+
+    override fun onBackPressed() {
+        if (backPressedTime + 2000 > System.currentTimeMillis()) {
+            super.onBackPressed()
+        } else {
+            android.widget.Toast.makeText(this, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
+        }
+        backPressedTime = System.currentTimeMillis()
+    }
 }
 

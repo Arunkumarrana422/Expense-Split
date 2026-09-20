@@ -30,6 +30,7 @@ fun HomeScreen(
     currentUserId: String = "",
     groups: List<GroupEntity>,
     isSyncing: Boolean = false,
+    profilePhoto: String = "",
     onRefresh: () -> Unit = {},
     onCreateRoom: () -> Unit,
     onJoinRoom: () -> Unit,
@@ -51,19 +52,11 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = userName.take(1).uppercase(),
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
+                        com.example.ui.common.UserAvatar(
+                            userName = userName,
+                            base64Photo = profilePhoto,
+                            size = 40.dp
+                        )
                         Column {
                             Text(text = "Hello,", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(text = userName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

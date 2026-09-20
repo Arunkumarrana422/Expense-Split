@@ -1,5 +1,11 @@
 package com.example.ui.profile
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import android.graphics.BitmapFactory
+import android.util.Base64
+import java.io.ByteArrayOutputStream
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,9 +29,11 @@ fun ProfileScreen(
     userEmail: String,
     currentTheme: String,
     currentCurrency: String,
+    profilePhoto: String = "",
     onThemeChange: (String) -> Unit,
     onCurrencyChange: (String) -> Unit,
     onUpdateProfile: (String, (Result<Unit>) -> Unit) -> Unit,
+    onUpdateProfilePhoto: (String) -> Unit = {},
     onLogout: () -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
@@ -37,6 +45,27 @@ fun ProfileScreen(
 
     var showCurrencyDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                val bytes = inputStream?.readBytes()
+                inputStream?.close()
+                if (bytes != null) {
+                    val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    val scaled = android.graphics.Bitmap.createScaledBitmap(bitmap, 300, 300, true)
+                    val outputStream = ByteArrayOutputStream()
+                    scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+                    val encoded = Base64.encodeToString(outputStream.toByteArray(), Base64.DEFAULT)
+                    onUpdateProfilePhoto(encoded)
+                }
+            } catch (e: Exception) {}
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -55,17 +84,36 @@ fun ProfileScreen(
         ) {
             Box(
                 modifier = Modifier
-                    .size(80.dp)
+                    .size(90.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .clickable {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = userName.take(1).uppercase(),
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                com.example.ui.common.UserAvatar(
+                    userName = userName,
+                    base64Photo = profilePhoto,
+                    size = 90.dp
                 )
+                if (profilePhoto.isBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "Add Photo",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {

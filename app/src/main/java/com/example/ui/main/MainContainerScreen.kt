@@ -49,6 +49,7 @@ fun MainContainerScreen(
     val coroutineScope = rememberCoroutineScope()
 
     val allGroupExpenses by viewModel.allGroupExpenses.collectAsStateWithLifecycle()
+    val profilePhoto by viewModel.profilePhoto.collectAsStateWithLifecycle()
 
     Scaffold(
         contentWindowInsets = WindowInsets(0.dp),
@@ -137,6 +138,7 @@ fun MainContainerScreen(
                     currentUserId = viewModel.currentUserId,
                     groups = groups,
                     isSyncing = isSyncing,
+                    profilePhoto = profilePhoto,
                     onRefresh = { viewModel.refreshData() },
                     onCreateRoom = onNavigateToCreateRoom,
                     onJoinRoom = onNavigateToJoinRoom,
@@ -168,6 +170,7 @@ fun MainContainerScreen(
                     userEmail = viewModel.currentUserEmail,
                     currentTheme = themeMode,
                     currentCurrency = currency,
+                    profilePhoto = profilePhoto,
                     onThemeChange = { newTheme ->
                         viewModel.setThemeMode(newTheme)
                     },
@@ -176,6 +179,9 @@ fun MainContainerScreen(
                     },
                     onUpdateProfile = { newName, cb ->
                         viewModel.updateProfile(newName, cb)
+                    },
+                    onUpdateProfilePhoto = { newBase64 ->
+                        viewModel.updateProfilePhoto(newBase64)
                     },
                     onLogout = {
                         viewModel.logout()

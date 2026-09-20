@@ -293,6 +293,14 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    val profilePhoto = repository.profilePhotoFlow.asStateFlow()
+
+    fun updateProfilePhoto(base64Str: String) {
+        viewModelScope.launch {
+            repository.updateProfilePhoto(base64Str)
+        }
+    }
+
     fun approveGroupDeletion(groupId: String) {
         viewModelScope.launch {
             repository.approveGroupDeletion(groupId)

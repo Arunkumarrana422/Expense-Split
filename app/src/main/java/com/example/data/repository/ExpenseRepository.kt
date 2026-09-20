@@ -37,6 +37,18 @@ class ExpenseRepository(private val context: Context) {
 
     private val prefs = context.getSharedPreferences("expense_auth_prefs", Context.MODE_PRIVATE)
 
+    val profilePhotoFlow = kotlinx.coroutines.flow.MutableStateFlow(prefs.getString("profile_photo", "") ?: "")
+
+    suspend fun updateProfilePhoto(base64Str: String) {
+        prefs.edit().putString("profile_photo", base64Str).apply()
+        profilePhotoFlow.value = base64Str
+        try {
+            if (currentUserId.isNotBlank()) {
+                dbRef.child("users").child(currentUserId).child("profileImage").setValue(base64Str).await()
+            }
+        } catch (e: Exception) {}
+    }
+
     private fun ensureFirebase(): FirebaseApp {
         val apps = FirebaseApp.getApps(context)
         return if (apps.isNotEmpty()) {
@@ -198,6 +210,15 @@ class ExpenseRepository(private val context: Context) {
         if (userId.isBlank()) return
         try {
             val ref = dbRef
+
+            try {
+                val userSnap = ref.child("users").child(userId).get().await()
+                val profileImg = userSnap.child("profileImage").getValue(String::class.java) ?: ""
+                if (profileImg.isNotBlank()) {
+                    prefs.edit().putString("profile_photo", profileImg).apply()
+                    profilePhotoFlow.value = profileImg
+                }
+            } catch (e: Exception) {}
 
             // 1. Fetch user's registered groups from user_groups node
             val groupIdsToSync = mutableSetOf<String>()
