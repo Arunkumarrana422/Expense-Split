@@ -291,6 +291,8 @@ fun RegisterScreen(
                     focusManager.clearFocus()
                     if (fullName.isBlank() || email.isBlank() || password.isBlank()) {
                         errorMessage = "Please fill in all fields"
+                    } else if (password.length < 6) {
+                        errorMessage = "Password must be at least 6 characters"
                     } else if (password != confirmPassword) {
                         errorMessage = "Passwords do not match"
                     } else {

@@ -57,6 +57,9 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
 
     fun logout() {
         repository.logout()
+        _allGroups.value = emptyList()
+        _allGroupExpenses.value = emptyList()
+        _personalExpenses.value = emptyList()
         loadUserData()
     }
 
@@ -91,6 +94,11 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
 
     private fun loadUserData() {
         val userId = repository.currentUserId
+        if (userId.isNotBlank()) {
+            viewModelScope.launch {
+                repository.syncDataFromFirestore(userId)
+            }
+        }
         groupsJob?.cancel()
         groupsJob = viewModelScope.launch {
             repository.getGroupsForUser(userId).collect { groups ->

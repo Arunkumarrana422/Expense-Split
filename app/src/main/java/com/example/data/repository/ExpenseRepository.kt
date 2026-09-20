@@ -17,14 +17,6 @@ import kotlinx.coroutines.tasks.await
 import java.util.UUID
 
 class ExpenseRepository(context: Context) {
-    init {
-        try {
-            com.google.firebase.FirebaseApp.initializeApp(context)
-        } catch (e: Exception) {
-            // Already initialized
-        }
-    }
-
     private val database = Room.databaseBuilder(
         context.applicationContext,
         AppDatabase::class.java,
@@ -49,59 +41,57 @@ class ExpenseRepository(context: Context) {
         }
     }
 
-    val currentUserId: String
-        get() {
-            if (auth != null && auth?.currentUser != null) {
-                return auth?.currentUser?.uid ?: ""
-            } else {
-                return prefs.getString("local_user_id", "user_local_123") ?: "user_local_123"
+    init {
+        try {
+            if (com.google.firebase.FirebaseApp.getApps(context).isEmpty()) {
+                com.google.firebase.FirebaseApp.initializeApp(context)
             }
+        } catch (e: Exception) {
+            // Already initialized
         }
+        // If not logged in via Firebase Auth, ensure local prefs are completely clean
+        if (auth?.currentUser == null) {
+            prefs.edit().clear().apply()
+        }
+    }
+
+    val currentUserId: String
+        get() = auth?.currentUser?.uid ?: ""
 
     val isLoggedIn: Boolean
-        get() {
-            if (auth != null && auth?.currentUser != null) {
-                return true
-            }
-            return prefs.contains("local_user_id")
-        }
+        get() = auth?.currentUser != null
 
     val currentUserEmail: String
-        get() {
-            if (auth != null && auth?.currentUser != null) {
-                return auth?.currentUser?.email ?: ""
-            } else {
-                return prefs.getString("local_user_email", "user@example.com") ?: "user@example.com"
-            }
-        }
+        get() = auth?.currentUser?.email ?: ""
 
     val currentUserName: String
         get() {
-            if (auth != null && auth?.currentUser != null) {
-                return auth?.currentUser?.displayName ?: "User"
-            } else {
-                return prefs.getString("local_user_name", "User") ?: "User"
-            }
+            val user = auth?.currentUser
+            return user?.displayName?.takeIf { it.isNotBlank() }
+                ?: user?.email?.substringBefore("@")?.takeIf { it.isNotBlank() }
+                ?: "User"
         }
 
     suspend fun login(email: String, password: String): Result<Unit> {
         return try {
-            val oldUserId = prefs.getString("local_user_id", "user_local_123") ?: "user_local_123"
-            val authInstance = auth
-            if (authInstance != null) {
-                authInstance.signInWithEmailAndPassword(email, password).await()
-            } else {
-                val userId = "user_${email.hashCode().toString().replace("-", "")}"
-                prefs.edit()
-                    .putString("local_user_id", userId)
-                    .putString("local_user_email", email)
-                    .putString("local_user_name", email.substringBefore("@"))
-                    .apply()
-            }
-            val newUserId = currentUserId
-            if (newUserId.isNotBlank() && oldUserId != newUserId) {
-                database.groupDao().updateMemberUserId(oldUserId, newUserId)
-                database.personalExpenseDao().updatePersonalExpenseUserId(oldUserId, newUserId)
+            val authInstance = auth ?: return Result.failure(Exception("Firebase Auth is not available"))
+            authInstance.signInWithEmailAndPassword(email, password).await()
+            val uid = authInstance.currentUser?.uid
+            if (uid != null) {
+                // Try fetching user name from Firestore if display name is empty
+                try {
+                    val userDoc = firestore?.collection("users")?.document(uid)?.get()?.await()
+                    val savedName = userDoc?.getString("fullName")
+                    if (!savedName.isNullOrBlank() && authInstance.currentUser?.displayName.isNullOrBlank()) {
+                        val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                            .setDisplayName(savedName)
+                            .build()
+                        authInstance.currentUser?.updateProfile(profileUpdates)?.await()
+                    }
+                } catch (e: Exception) {
+                    // Non-fatal
+                }
+                syncDataFromFirestore(uid)
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -111,27 +101,28 @@ class ExpenseRepository(context: Context) {
 
     suspend fun register(fullName: String, email: String, password: String): Result<Unit> {
         return try {
-            val oldUserId = prefs.getString("local_user_id", "user_local_123") ?: "user_local_123"
-            val authInstance = auth
-            if (authInstance != null) {
-                val result = authInstance.createUserWithEmailAndPassword(email, password).await()
-                val user = result.user
-                val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
-                    .setDisplayName(fullName)
-                    .build()
-                user?.updateProfile(profileUpdates)?.await()
-            } else {
-                val userId = "user_${email.hashCode().toString().replace("-", "")}"
-                prefs.edit()
-                    .putString("local_user_id", userId)
-                    .putString("local_user_email", email)
-                    .putString("local_user_name", fullName)
-                    .apply()
-            }
-            val newUserId = currentUserId
-            if (newUserId.isNotBlank() && oldUserId != newUserId) {
-                database.groupDao().updateMemberUserId(oldUserId, newUserId)
-                database.personalExpenseDao().updatePersonalExpenseUserId(oldUserId, newUserId)
+            val authInstance = auth ?: return Result.failure(Exception("Firebase Auth is not available"))
+            val result = authInstance.createUserWithEmailAndPassword(email, password).await()
+            val user = result.user
+            val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                .setDisplayName(fullName)
+                .build()
+            user?.updateProfile(profileUpdates)?.await()
+
+            val uid = user?.uid
+            if (uid != null) {
+                val userData = hashMapOf(
+                    "userId" to uid,
+                    "fullName" to fullName,
+                    "email" to email,
+                    "createdAt" to System.currentTimeMillis()
+                )
+                try {
+                    firestore?.collection("users")?.document(uid)?.set(userData)?.await()
+                } catch (e: Exception) {
+                    // Non-fatal
+                }
+                syncDataFromFirestore(uid)
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -140,27 +131,59 @@ class ExpenseRepository(context: Context) {
     }
 
     fun logout() {
-        if (auth != null && auth?.currentUser != null) {
+        try {
             auth?.signOut()
-        } else {
-            prefs.edit().remove("local_user_id").remove("local_user_email").remove("local_user_name").apply()
-        }
+        } catch (e: Exception) {}
+        prefs.edit().clear().apply()
     }
 
     suspend fun updateProfile(newName: String): Result<Unit> {
         return try {
-            val user = auth?.currentUser
-            if (user != null) {
-                val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
-                    .setDisplayName(newName)
-                    .build()
-                user.updateProfile(profileUpdates)?.await()
-            } else {
-                prefs.edit().putString("local_user_name", newName).apply()
-            }
+            val user = auth?.currentUser ?: return Result.failure(Exception("User not logged in"))
+            val profileUpdates = com.google.firebase.auth.UserProfileChangeRequest.Builder()
+                .setDisplayName(newName)
+                .build()
+            user.updateProfile(profileUpdates).await()
+            try {
+                firestore?.collection("users")?.document(user.uid)?.update("fullName", newName)?.await()
+            } catch (e: Exception) {}
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun syncDataFromFirestore(userId: String) {
+        if (userId.isBlank()) return
+        try {
+            val fs = firestore ?: return
+            val memberQuery = fs.collection("groupMembers")
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+            for (memberDoc in memberQuery.documents) {
+                val member = memberDoc.toObject(GroupMemberEntity::class.java)
+                if (member != null) {
+                    database.groupDao().insertMember(member)
+                    val groupDoc = fs.collection("groups").document(member.groupId).get().await()
+                    val group = groupDoc.toObject(GroupEntity::class.java)
+                    if (group != null) {
+                        database.groupDao().insertGroup(group)
+                    }
+                    val expenseQuery = fs.collection("expenses")
+                        .whereEqualTo("groupId", member.groupId)
+                        .get()
+                        .await()
+                    for (expDoc in expenseQuery.documents) {
+                        val exp = expDoc.toObject(ExpenseEntity::class.java)
+                        if (exp != null) {
+                            database.expenseDao().insertExpense(exp)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Non-fatal sync error
         }
     }
 
