@@ -191,21 +191,74 @@ class ExpenseRepository(private val context: Context) {
         if (userId.isBlank()) return
         try {
             val fs = getFirestore()
-            val memberQuery = fs.collection("groupMembers")
-                .whereEqualTo("userId", userId)
-                .get()
-                .await()
-            for (memberDoc in memberQuery.documents) {
-                val member = memberDoc.toObject(GroupMemberEntity::class.java)
-                if (member != null) {
-                    database.groupDao().insertMember(member)
-                    val groupDoc = fs.collection("groups").document(member.groupId).get().await()
+            val userEmail = currentUserEmail.trim().lowercase()
+
+            // 1. Fetch group memberships for this user
+            val groupIdsToSync = mutableSetOf<String>()
+
+            // Search by userId in groupMembers
+            try {
+                val memberQuery = fs.collection("groupMembers")
+                    .whereEqualTo("userId", userId)
+                    .get()
+                    .await()
+                for (memberDoc in memberQuery.documents) {
+                    val member = memberDoc.toObject(GroupMemberEntity::class.java)
+                    if (member != null && member.groupId.isNotBlank()) {
+                        database.groupDao().insertMember(member)
+                        groupIdsToSync.add(member.groupId)
+                    }
+                }
+            } catch (e: Exception) {}
+
+            // Also search groups created by this user
+            try {
+                val createdGroupsQuery = fs.collection("groups")
+                    .whereEqualTo("createdBy", userId)
+                    .get()
+                    .await()
+                for (groupDoc in createdGroupsQuery.documents) {
+                    val group = groupDoc.toObject(GroupEntity::class.java)
+                    if (group != null && group.groupId.isNotBlank()) {
+                        database.groupDao().insertGroup(group)
+                        groupIdsToSync.add(group.groupId)
+                        // Ensure creator has a member entry locally
+                        val creatorMember = GroupMemberEntity(
+                            membershipId = "${group.groupId}_$userId",
+                            groupId = group.groupId,
+                            userId = userId,
+                            userName = currentUserName.ifBlank { "User" },
+                            role = "ADMIN"
+                        )
+                        database.groupDao().insertMember(creatorMember)
+                    }
+                }
+            } catch (e: Exception) {}
+
+            // For all found groups, sync their full group info, members, expenses & settlements
+            for (groupId in groupIdsToSync) {
+                try {
+                    val groupDoc = fs.collection("groups").document(groupId).get().await()
                     val group = groupDoc.toObject(GroupEntity::class.java)
                     if (group != null) {
                         database.groupDao().insertGroup(group)
                     }
+
+                    // Sync all members of this group
+                    val allMembersQuery = fs.collection("groupMembers")
+                        .whereEqualTo("groupId", groupId)
+                        .get()
+                        .await()
+                    for (mDoc in allMembersQuery.documents) {
+                        val m = mDoc.toObject(GroupMemberEntity::class.java)
+                        if (m != null) {
+                            database.groupDao().insertMember(m)
+                        }
+                    }
+
+                    // Sync all expenses of this group
                     val expenseQuery = fs.collection("expenses")
-                        .whereEqualTo("groupId", member.groupId)
+                        .whereEqualTo("groupId", groupId)
                         .get()
                         .await()
                     for (expDoc in expenseQuery.documents) {
@@ -214,10 +267,36 @@ class ExpenseRepository(private val context: Context) {
                             database.expenseDao().insertExpense(exp)
                         }
                     }
-                }
+
+                    // Sync all settlements of this group
+                    val settlementQuery = fs.collection("settlements")
+                        .whereEqualTo("groupId", groupId)
+                        .get()
+                        .await()
+                    for (setDoc in settlementQuery.documents) {
+                        val set = setDoc.toObject(SettlementEntity::class.java)
+                        if (set != null) {
+                            database.settlementDao().insertSettlement(set)
+                        }
+                    }
+                } catch (e: Exception) {}
             }
 
-            // Sync notifications for this user
+            // 2. Sync personal expenses for this user
+            try {
+                val personalQuery = fs.collection("personalExpenses")
+                    .whereEqualTo("userId", userId)
+                    .get()
+                    .await()
+                for (doc in personalQuery.documents) {
+                    val personal = doc.toObject(PersonalExpenseEntity::class.java)
+                    if (personal != null) {
+                        database.personalExpenseDao().insertPersonalExpense(personal)
+                    }
+                }
+            } catch (e: Exception) {}
+
+            // 3. Sync notifications for this user
             try {
                 val notifQuery = fs.collection("notifications")
                     .whereIn("recipientUserId", listOf(userId, "ALL", ""))
@@ -229,9 +308,7 @@ class ExpenseRepository(private val context: Context) {
                         database.notificationDao().insertNotification(notif)
                     }
                 }
-            } catch (e: Exception) {
-                // Non-fatal
-            }
+            } catch (e: Exception) {}
         } catch (e: Exception) {
             // Non-fatal sync error
         }
@@ -567,9 +644,15 @@ class ExpenseRepository(private val context: Context) {
             notes = notes
         )
         database.personalExpenseDao().insertPersonalExpense(expense)
+        try {
+            getFirestore().collection("personalExpenses").document(id).set(expense).await()
+        } catch (e: Exception) {}
     }
 
     suspend fun deletePersonalExpense(id: String) {
         database.personalExpenseDao().deletePersonalExpense(id)
+        try {
+            getFirestore().collection("personalExpenses").document(id).delete().await()
+        } catch (e: Exception) {}
     }
 }

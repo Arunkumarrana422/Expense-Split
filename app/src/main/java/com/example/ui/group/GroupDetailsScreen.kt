@@ -31,6 +31,7 @@ fun GroupDetailsScreen(
     onAddExpense: () -> Unit,
     onAddSettlement: () -> Unit,
     onDeleteExpense: (ExpenseEntity) -> Unit,
+    onRefresh: () -> Unit = {},
     onBack: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -49,6 +50,9 @@ fun GroupDetailsScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onRefresh) {
+                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Sync Group Data")
+                    }
                     IconButton(onClick = onAddSettlement) {
                         Icon(imageVector = Icons.Default.Payment, contentDescription = "Settle")
                     }

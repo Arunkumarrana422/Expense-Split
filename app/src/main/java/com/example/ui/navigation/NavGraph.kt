@@ -58,6 +58,7 @@ fun AppNavGraph(viewModel: ExpenseViewModel) {
     val personalExpenses by viewModel.personalExpenses.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val currency by viewModel.currency.collectAsStateWithLifecycle()
+    val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -182,6 +183,8 @@ fun AppNavGraph(viewModel: ExpenseViewModel) {
                 HomeScreen(
                     userName = viewModel.currentUserName,
                     groups = groups,
+                    isSyncing = isSyncing,
+                    onRefresh = { viewModel.refreshData() },
                     onCreateRoom = { navController.navigate(Screen.CreateRoom.route) },
                     onJoinRoom = { navController.navigate(Screen.JoinRoom.route) },
                     onGroupClick = { groupId -> navController.navigate(Screen.GroupDetails.createRoute(groupId)) },
@@ -230,6 +233,7 @@ fun AppNavGraph(viewModel: ExpenseViewModel) {
                     onAddExpense = { navController.navigate(Screen.AddExpense.createRoute(groupId)) },
                     onAddSettlement = { navController.navigate(Screen.Settlement.createRoute(groupId)) },
                     onDeleteExpense = { exp -> viewModel.deleteExpense(exp, group?.groupName ?: "") },
+                    onRefresh = { viewModel.refreshData() },
                     onBack = { navController.popBackStack() }
                 )
             }

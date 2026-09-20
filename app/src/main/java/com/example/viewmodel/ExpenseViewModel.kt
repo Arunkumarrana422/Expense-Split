@@ -36,23 +36,53 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         _currency.value = curr
     }
 
+    private val _isSyncing = MutableStateFlow(false)
+    val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
+
     fun login(email: String, password: String, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
+            _isSyncing.value = true
             val res = repository.login(email, password)
             if (res.isSuccess) {
+                // Fully await synchronization so all previous groups, expenses & data are loaded
+                val uid = repository.currentUserId
+                if (uid.isNotBlank()) {
+                    repository.syncDataFromFirestore(uid)
+                }
                 loadUserData()
             }
+            _isSyncing.value = false
             onResult(res)
         }
     }
 
     fun register(fullName: String, email: String, password: String, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
+            _isSyncing.value = true
             val res = repository.register(fullName, email, password)
             if (res.isSuccess) {
+                val uid = repository.currentUserId
+                if (uid.isNotBlank()) {
+                    repository.syncDataFromFirestore(uid)
+                }
                 loadUserData()
             }
+            _isSyncing.value = false
             onResult(res)
+        }
+    }
+
+    fun refreshData(onComplete: (() -> Unit)? = null) {
+        val uid = repository.currentUserId
+        if (uid.isNotBlank()) {
+            viewModelScope.launch {
+                _isSyncing.value = true
+                repository.syncDataFromFirestore(uid)
+                _isSyncing.value = false
+                onComplete?.invoke()
+            }
+        } else {
+            onComplete?.invoke()
         }
     }
 
