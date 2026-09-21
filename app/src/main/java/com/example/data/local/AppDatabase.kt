@@ -29,6 +29,9 @@ interface ExpenseDao {
 
     @Query("DELETE FROM expenses WHERE expenseId = :expenseId")
     suspend fun deleteExpense(expenseId: String)
+
+    @Query("DELETE FROM expenses WHERE groupId = :groupId")
+    suspend fun deleteExpensesByGroupId(groupId: String)
 }
 
 @Dao
@@ -81,6 +84,9 @@ interface SettlementDao {
 
     @Query("DELETE FROM settlements WHERE settlementId = :settlementId")
     suspend fun deleteSettlement(settlementId: String)
+
+    @Query("DELETE FROM settlements WHERE groupId = :groupId")
+    suspend fun deleteSettlementsByGroupId(groupId: String)
 }
 
 @Dao

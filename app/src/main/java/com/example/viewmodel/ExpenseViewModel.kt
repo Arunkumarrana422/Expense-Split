@@ -327,4 +327,11 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             repository.rejectGroupDeletion(groupId)
         }
     }
+
+    fun clearExpensesForGroup(groupId: String, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.clearExpensesForGroup(groupId)
+            onComplete()
+        }
+    }
 }

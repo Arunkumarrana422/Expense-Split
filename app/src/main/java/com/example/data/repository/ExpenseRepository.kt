@@ -929,6 +929,8 @@ class ExpenseRepository(private val context: Context) {
 
     private suspend fun deleteGroupFully(groupId: String) {
         database.groupDao().deleteMembersByGroupId(groupId)
+        database.expenseDao().deleteExpensesByGroupId(groupId)
+        database.settlementDao().deleteSettlementsByGroupId(groupId)
         val group = database.groupDao().getGroupById(groupId)
         if (group != null) {
             val deletedGroup = group.copy(status = "DELETED")
@@ -938,7 +940,30 @@ class ExpenseRepository(private val context: Context) {
             dbRef.child("groups").child(groupId).removeValue().await()
             dbRef.child("group_members").child(groupId).removeValue().await()
             dbRef.child("expenses").child(groupId).removeValue().await()
+            dbRef.child("group_expenses").child(groupId).removeValue().await()
             dbRef.child("settlements").child(groupId).removeValue().await()
+            dbRef.child("group_settlements").child(groupId).removeValue().await()
+            if (group != null && group.roomCode.isNotBlank()) {
+                dbRef.child("room_codes").child(group.roomCode).removeValue().await()
+            }
+            val membersSnap = dbRef.child("group_members").child(groupId).get().await()
+            for (mChild in membersSnap.children) {
+                val uId = mChild.child("userId").getValue(String::class.java)
+                if (!uId.isNullOrBlank()) {
+                    dbRef.child("user_groups").child(uId).child(groupId).removeValue().await()
+                }
+            }
+        } catch (e: Exception) {}
+    }
+
+    suspend fun clearExpensesForGroup(groupId: String) {
+        database.expenseDao().deleteExpensesByGroupId(groupId)
+        database.settlementDao().deleteSettlementsByGroupId(groupId)
+        try {
+            dbRef.child("expenses").child(groupId).removeValue().await()
+            dbRef.child("group_expenses").child(groupId).removeValue().await()
+            dbRef.child("settlements").child(groupId).removeValue().await()
+            dbRef.child("group_settlements").child(groupId).removeValue().await()
         } catch (e: Exception) {}
     }
 }

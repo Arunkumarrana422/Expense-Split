@@ -49,6 +49,7 @@ fun GroupDetailsScreen(
     onAddSettlement: (payerId: String?, receiverId: String?, amount: Long?) -> Unit,
     onDeleteExpense: (ExpenseEntity) -> Unit,
     onDeleteSettlement: (SettlementEntity) -> Unit,
+    onClearExpenses: () -> Unit = {},
     onRefresh: (onComplete: () -> Unit) -> Unit = { it() },
     onBack: () -> Unit
 ) {
@@ -195,6 +196,8 @@ fun GroupDetailsScreen(
                     )
                     1 -> ExpensesTab(
                         expenses = expenses,
+                        members = distinctMembers,
+                        currentUserId = currentUserId,
                         onDelete = { exp ->
                             expenseToDelete = exp
                         }
@@ -206,7 +209,8 @@ fun GroupDetailsScreen(
                         settlements = settlements,
                         onSettleUp = { pId, rId, amt ->
                             onAddSettlement(pId, rId, amt)
-                        }
+                        },
+                        onClearExpenses = onClearExpenses
                     )
                     4 -> ActivityTab(
                         expenses = expenses,
@@ -494,12 +498,20 @@ fun OverviewTab(
 }
 
 @Composable
-fun ExpensesTab(expenses: List<ExpenseEntity>, onDelete: (ExpenseEntity) -> Unit) {
+fun ExpensesTab(
+    expenses: List<ExpenseEntity>,
+    members: List<GroupMemberEntity>,
+    currentUserId: String,
+    onDelete: (ExpenseEntity) -> Unit
+) {
     var selectedFilter by remember { mutableStateOf(TimeFilter.ALL) }
+    var selectedMemberFilter by remember { mutableStateOf(currentUserId.ifBlank { "ALL" }) }
 
-    val filteredExpenses = remember(expenses, selectedFilter) {
+    val filteredExpenses = remember(expenses, selectedFilter, selectedMemberFilter) {
         expenses.filter { exp ->
-            isTimestampInFilter(exp.expenseDate, selectedFilter)
+            val matchesTime = isTimestampInFilter(exp.expenseDate, selectedFilter)
+            val matchesMember = if (selectedMemberFilter == "ALL") true else exp.paidByUserId == selectedMemberFilter
+            matchesTime && matchesMember
         }.sortedWith(compareByDescending<ExpenseEntity> { it.expenseDate }.thenByDescending { it.createdAt })
     }
 
@@ -510,7 +522,41 @@ fun ExpensesTab(expenses: List<ExpenseEntity>, onDelete: (ExpenseEntity) -> Unit
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            FilterChipBar(selectedFilter = selectedFilter, onFilterSelected = { selectedFilter = it })
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChipBar(selectedFilter = selectedFilter, onFilterSelected = { selectedFilter = it })
+
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    item {
+                        FilterChip(
+                            selected = selectedMemberFilter == "ALL",
+                            onClick = { selectedMemberFilter = "ALL" },
+                            label = { Text("All") },
+                            leadingIcon = if (selectedMemberFilter == "ALL") {
+                                { Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            } else null
+                        )
+                    }
+                    items(members, key = { it.userId.ifBlank { it.membershipId } }) { member ->
+                        val isSelected = selectedMemberFilter == member.userId
+                        val label = if (member.role.equals("ADMIN", ignoreCase = true) || member.role.equals("CREATOR", ignoreCase = true)) {
+                            "${member.userName} (Admin)"
+                        } else {
+                            member.userName
+                        }
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { selectedMemberFilter = member.userId },
+                            label = { Text(label, maxLines = 1) },
+                            leadingIcon = if (isSelected) {
+                                { Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            } else null
+                        )
+                    }
+                }
+            }
         }
 
         if (filteredExpenses.isEmpty()) {
@@ -522,7 +568,7 @@ fun ExpensesTab(expenses: List<ExpenseEntity>, onDelete: (ExpenseEntity) -> Unit
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "No expenses found for ${selectedFilter.label.lowercase()}.",
+                        "No expenses found.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -705,7 +751,8 @@ fun BalancesTab(
     expenses: List<ExpenseEntity>,
     members: List<GroupMemberEntity>,
     settlements: List<SettlementEntity>,
-    onSettleUp: (payerId: String, receiverId: String, amount: Long) -> Unit
+    onSettleUp: (payerId: String, receiverId: String, amount: Long) -> Unit,
+    onClearExpenses: () -> Unit
 ) {
     // Calculate net balances per member taking expenses AND settlements into account
     val paidMap = mutableMapOf<String, Long>()
@@ -800,6 +847,17 @@ fun BalancesTab(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Button(
+                            onClick = onClearExpenses,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Start New Cycle (Reset Expenses to ₹0)", fontWeight = FontWeight.Bold)
+                        }
                     } else {
                         Text(
                             text = "Tap 'Settle Up' to record payment and bring balances to ₹0 automatically:",
