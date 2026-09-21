@@ -78,6 +78,7 @@ fun AppNavGraph(
     val personalExpenses by viewModel.personalExpenses.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val currency by viewModel.currency.collectAsStateWithLifecycle()
+    val currentUserName by viewModel.userName.collectAsStateWithLifecycle()
     val isSyncing by viewModel.isSyncing.collectAsStateWithLifecycle()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -258,7 +259,7 @@ fun AppNavGraph(
 
                 SettlementScreen(
                     currentUserId = viewModel.currentUserId,
-                    currentUserName = viewModel.currentUserName,
+                    currentUserName = currentUserName,
                     members = members,
                     expenses = expenses,
                     settlements = settlements,
@@ -319,7 +320,7 @@ fun AppNavGraph(
             }
             composable(Screen.Profile.route) {
                 ProfileScreen(
-                    userName = viewModel.currentUserName,
+                    userName = currentUserName,
                     userEmail = viewModel.currentUserEmail,
                     currentTheme = themeMode,
                     currentCurrency = currency,

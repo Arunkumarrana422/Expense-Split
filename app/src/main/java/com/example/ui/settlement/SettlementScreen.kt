@@ -40,8 +40,14 @@ fun SettlementScreen(
     onRecordSettlement: (payerId: String, payerName: String, receiverId: String, receiverName: String, amount: Long, paymentMethod: String, notes: String) -> Unit,
     onBack: () -> Unit
 ) {
-    val distinctMembers = remember(members) {
-        members.distinctBy { it.userId.ifBlank { it.membershipId } }
+    val distinctMembers = remember(members, currentUserName) {
+        members.distinctBy { it.userId.ifBlank { it.membershipId } }.map { member ->
+            if (member.userId == currentUserId && currentUserName.isNotBlank()) {
+                member.copy(userName = currentUserName)
+            } else {
+                member
+            }
+        }
     }
 
     // Compute net balances for each member
