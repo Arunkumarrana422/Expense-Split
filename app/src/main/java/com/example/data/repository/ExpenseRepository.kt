@@ -291,16 +291,29 @@ class ExpenseRepository(private val context: Context) {
                 }
             } catch (e: Exception) {}
 
-            // Also check all groups where createdBy == userId as fallback
+            // Also check all groups where createdBy == userId or user is in group_members as fallback
             try {
                 val allGroupsSnap = ref.child("groups").get().await()
                 for (gDoc in allGroupsSnap.children) {
+                    val gId = gDoc.key ?: continue
                     val group = gDoc.getValue(GroupEntity::class.java)
-                    if (group != null && (group.createdBy == userId || groupIdsToSync.contains(group.groupId))) {
+                    var isMember = false
+                    try {
+                        val membersSnap = ref.child("group_members").child(gId).get().await()
+                        for (mChild in membersSnap.children) {
+                            val memberUserId = mChild.child("userId").getValue(String::class.java)
+                            if (memberUserId == userId) {
+                                isMember = true
+                                break
+                            }
+                        }
+                    } catch (e: Exception) {}
+
+                    if (group != null && (group.createdBy == userId || isMember || groupIdsToSync.contains(gId))) {
                         database.groupDao().insertGroup(group)
-                        groupIdsToSync.add(group.groupId)
+                        groupIdsToSync.add(gId)
                         // Make sure user_groups mapping is saved
-                        ref.child("user_groups").child(userId).child(group.groupId).setValue(true)
+                        ref.child("user_groups").child(userId).child(gId).setValue(true)
                     }
                 }
             } catch (e: Exception) {}
