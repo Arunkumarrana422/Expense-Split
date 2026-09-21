@@ -957,12 +957,22 @@ class ExpenseRepository(private val context: Context) {
                 dbRef.child("room_codes").child(group.roomCode).removeValue().await()
             }
 
-            // Remove any room_codes entry where value matches groupId
+            // Remove any room_codes entry where key or value matches groupId or roomCode
             val roomCodesSnap = dbRef.child("room_codes").get().await()
             for (child in roomCodesSnap.children) {
                 val valStr = child.getValue(String::class.java)
-                if (valStr == groupId) {
+                val keyStr = child.key
+                if (valStr == groupId || keyStr == groupId || (group != null && keyStr == group.roomCode)) {
                     child.ref.removeValue().await()
+                }
+            }
+
+            // Thoroughly clean up user_groups across all users
+            val userGroupsSnap = dbRef.child("user_groups").get().await()
+            for (userChild in userGroupsSnap.children) {
+                val groupChild = userChild.child(groupId)
+                if (groupChild.exists()) {
+                    groupChild.ref.removeValue().await()
                 }
             }
 

@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.ExpenseEntity
 import com.example.data.local.GroupEntity
 import com.example.data.local.GroupMemberEntity
+import android.widget.Toast
 import com.example.data.local.SettlementEntity
 import com.example.domain.calculator.ExpenseCalculator
 import com.example.util.FilterChipBar
@@ -866,19 +867,24 @@ fun BalancesTab(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         if (isCurrentUserAdmin) {
+                            val context = LocalContext.current
                             Button(
                                 onClick = {
-                                    if (generatedResetCode.isBlank()) {
-                                        onRequestResetCycle { code ->
-                                            generatedResetCode = code
+                                    if (members.isEmpty()) {
+                                        Toast.makeText(context, "No any room member", Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        if (generatedResetCode.isBlank()) {
+                                            onRequestResetCycle { code ->
+                                                generatedResetCode = code
+                                                showClearConfirmDialog = true
+                                                confirmInputText = ""
+                                                resetError = false
+                                            }
+                                        } else {
                                             showClearConfirmDialog = true
                                             confirmInputText = ""
                                             resetError = false
                                         }
-                                    } else {
-                                        showClearConfirmDialog = true
-                                        confirmInputText = ""
-                                        resetError = false
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),

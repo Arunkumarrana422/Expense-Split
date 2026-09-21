@@ -337,7 +337,8 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
 
     fun requestResetCycle(groupId: String, groupName: String, onCodeGenerated: (String) -> Unit) {
         viewModelScope.launch {
-            val code = String.format("%06d", kotlin.random.Random.nextInt(100000, 999999))
+            val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+            val code = (1..6).map { chars.random() }.joinToString("")
             repository.requestResetCycle(groupId, groupName, code)
             onCodeGenerated(code)
         }
