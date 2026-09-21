@@ -318,6 +318,23 @@ class ExpenseRepository(private val context: Context) {
                 }
             } catch (e: Exception) {}
 
+            // Also fetch all group_settlements in Firebase and sync any settlement involving this user or in known groups
+            try {
+                val allSettlementsSnap = ref.child("group_settlements").get().await()
+                for (groupSnap in allSettlementsSnap.children) {
+                    val gId = groupSnap.key ?: continue
+                    for (setSnap in groupSnap.children) {
+                        val set = setSnap.getValue(SettlementEntity::class.java)
+                        if (set != null) {
+                            if (set.payerUserId == userId || set.receiverUserId == userId || groupIdsToSync.contains(gId)) {
+                                database.settlementDao().insertSettlement(set)
+                                groupIdsToSync.add(gId)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {}
+
             // For all found groups, sync group details, members, expenses, settlements
             for (groupId in groupIdsToSync) {
                 try {
