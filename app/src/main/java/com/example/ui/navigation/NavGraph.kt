@@ -211,6 +211,12 @@ fun AppNavGraph(
                     onDeleteExpense = { exp -> viewModel.deleteExpense(exp, group?.groupName ?: "") },
                     onDeleteSettlement = { settlement -> viewModel.deleteSettlement(settlement) },
                     onClearExpenses = { viewModel.clearExpensesForGroup(groupId) },
+                    onRequestResetCycle = { onCodeGenerated ->
+                        viewModel.requestResetCycle(groupId, group?.groupName ?: "", onCodeGenerated)
+                    },
+                    onVerifyAndClear = { enteredCode, expectedCode, onSuccess, onError ->
+                        viewModel.verifyAndClearExpenses(groupId, enteredCode, expectedCode, onSuccess, onError)
+                    },
                     onRefresh = { onComplete -> viewModel.refreshData(onComplete) },
                     onBack = { navController.popBackStack() }
                 )

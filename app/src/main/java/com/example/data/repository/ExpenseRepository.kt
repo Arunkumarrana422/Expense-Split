@@ -928,14 +928,11 @@ class ExpenseRepository(private val context: Context) {
     }
 
     private suspend fun deleteGroupFully(groupId: String) {
+        val group = database.groupDao().getGroupById(groupId)
         database.groupDao().deleteMembersByGroupId(groupId)
         database.expenseDao().deleteExpensesByGroupId(groupId)
         database.settlementDao().deleteSettlementsByGroupId(groupId)
-        val group = database.groupDao().getGroupById(groupId)
-        if (group != null) {
-            val deletedGroup = group.copy(status = "DELETED")
-            database.groupDao().insertGroup(deletedGroup)
-        }
+        database.groupDao().deleteGroup(groupId)
         try {
             dbRef.child("groups").child(groupId).removeValue().await()
             dbRef.child("group_members").child(groupId).removeValue().await()
@@ -956,14 +953,42 @@ class ExpenseRepository(private val context: Context) {
         } catch (e: Exception) {}
     }
 
+    suspend fun requestResetCycle(groupId: String, groupName: String, code: String) {
+        val resolvedGroupName = groupName.ifBlank {
+            database.groupDao().getGroupById(groupId)?.groupName ?: ""
+        }
+        val notifId = UUID.randomUUID().toString()
+        val notif = NotificationEntity(
+            id = notifId,
+            recipientUserId = "ALL",
+            senderUserId = currentUserId,
+            senderUserName = currentUserName,
+            groupId = groupId,
+            groupName = resolvedGroupName,
+            title = "🔐 Reset Verification Code",
+            message = "Admin initiated a new cycle reset for '$resolvedGroupName'. Verification Code: $code. Enter this code to confirm reset.",
+            type = "RESET_VERIFICATION",
+            timestamp = System.currentTimeMillis()
+        )
+        database.notificationDao().insertNotification(notif)
+        try {
+            dbRef.child("notifications").child(notifId).setValue(notif).await()
+            dbRef.child("room_reset_codes").child(groupId).setValue(code).await()
+        } catch (e: Exception) {}
+    }
+
     suspend fun clearExpensesForGroup(groupId: String) {
         database.expenseDao().deleteExpensesByGroupId(groupId)
         database.settlementDao().deleteSettlementsByGroupId(groupId)
+        try {
+            database.notificationDao().deleteNotificationsForGroupAndType(groupId, "RESET_VERIFICATION")
+        } catch (e: Exception) {}
         try {
             dbRef.child("expenses").child(groupId).removeValue().await()
             dbRef.child("group_expenses").child(groupId).removeValue().await()
             dbRef.child("settlements").child(groupId).removeValue().await()
             dbRef.child("group_settlements").child(groupId).removeValue().await()
+            dbRef.child("room_reset_codes").child(groupId).removeValue().await()
         } catch (e: Exception) {}
     }
 }

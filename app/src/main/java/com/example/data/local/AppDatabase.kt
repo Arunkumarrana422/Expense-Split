@@ -55,6 +55,9 @@ interface GroupDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertGroup(group: GroupEntity)
 
+    @Query("DELETE FROM groups WHERE groupId = :groupId")
+    suspend fun deleteGroup(groupId: String)
+
     @Query("SELECT * FROM group_members WHERE groupId = :groupId GROUP BY userId")
     fun getMembersForGroup(groupId: String): Flow<List<GroupMemberEntity>>
 
@@ -114,6 +117,9 @@ interface NotificationDao {
 
     @Query("DELETE FROM notifications WHERE id = :id")
     suspend fun deleteNotification(id: String)
+
+    @Query("DELETE FROM notifications WHERE groupId = :groupId AND type = :type")
+    suspend fun deleteNotificationsForGroupAndType(groupId: String, type: String)
 
     @Query("DELETE FROM notifications")
     suspend fun clearAll()

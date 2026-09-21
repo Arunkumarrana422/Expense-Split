@@ -50,6 +50,8 @@ fun GroupDetailsScreen(
     onDeleteExpense: (ExpenseEntity) -> Unit,
     onDeleteSettlement: (SettlementEntity) -> Unit,
     onClearExpenses: () -> Unit = {},
+    onRequestResetCycle: (onCodeGenerated: (String) -> Unit) -> Unit = {},
+    onVerifyAndClear: (enteredCode: String, expectedCode: String, onSuccess: () -> Unit, onError: () -> Unit) -> Unit = { _, _, s, _ -> s() },
     onRefresh: (onComplete: () -> Unit) -> Unit = { it() },
     onBack: () -> Unit
 ) {
@@ -172,6 +174,12 @@ fun GroupDetailsScreen(
                     )
             }
 
+            val isCurrentUserAdmin = remember(distinctMembers, currentUserId) {
+                distinctMembers.find { it.userId == currentUserId }?.let {
+                    it.role.equals("ADMIN", ignoreCase = true) || it.role.equals("CREATOR", ignoreCase = true)
+                } ?: false
+            }
+
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier
@@ -207,10 +215,12 @@ fun GroupDetailsScreen(
                         expenses = expenses,
                         members = distinctMembers,
                         settlements = settlements,
+                        isCurrentUserAdmin = isCurrentUserAdmin,
                         onSettleUp = { pId, rId, amt ->
                             onAddSettlement(pId, rId, amt)
                         },
-                        onClearExpenses = onClearExpenses
+                        onRequestResetCycle = onRequestResetCycle,
+                        onVerifyAndClear = onVerifyAndClear
                     )
                     4 -> ActivityTab(
                         expenses = expenses,
@@ -751,9 +761,16 @@ fun BalancesTab(
     expenses: List<ExpenseEntity>,
     members: List<GroupMemberEntity>,
     settlements: List<SettlementEntity>,
+    isCurrentUserAdmin: Boolean,
     onSettleUp: (payerId: String, receiverId: String, amount: Long) -> Unit,
-    onClearExpenses: () -> Unit
+    onRequestResetCycle: (onCodeGenerated: (String) -> Unit) -> Unit,
+    onVerifyAndClear: (enteredCode: String, expectedCode: String, onSuccess: () -> Unit, onError: () -> Unit) -> Unit
 ) {
+    var showClearConfirmDialog by remember { mutableStateOf(false) }
+    var confirmInputText by remember { mutableStateOf("") }
+    var generatedResetCode by remember { mutableStateOf("") }
+    var resetError by remember { mutableStateOf(false) }
+
     // Calculate net balances per member taking expenses AND settlements into account
     val paidMap = mutableMapOf<String, Long>()
     val shareMap = mutableMapOf<String, Long>()
@@ -848,15 +865,94 @@ fun BalancesTab(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        Button(
-                            onClick = onClearExpenses,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-                        ) {
-                            Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Start New Cycle (Reset Expenses to ₹0)", fontWeight = FontWeight.Bold)
+                        if (isCurrentUserAdmin) {
+                            Button(
+                                onClick = {
+                                    if (generatedResetCode.isBlank()) {
+                                        onRequestResetCycle { code ->
+                                            generatedResetCode = code
+                                            showClearConfirmDialog = true
+                                            confirmInputText = ""
+                                            resetError = false
+                                        }
+                                    } else {
+                                        showClearConfirmDialog = true
+                                        confirmInputText = ""
+                                        resetError = false
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                            ) {
+                                Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Start New Cycle (Reset Expenses to ₹0)", fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Text(
+                                text = "ℹ️ Only the room admin can initiate a new cycle reset.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        if (showClearConfirmDialog) {
+                            AlertDialog(
+                                onDismissRequest = { showClearConfirmDialog = false },
+                                title = { Text("Start New Cycle Verification") },
+                                text = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("A 6-digit verification code has been sent to all members' notifications. Enter the code below to confirm reset:")
+                                        OutlinedTextField(
+                                            value = confirmInputText,
+                                            onValueChange = { 
+                                                confirmInputText = it
+                                                resetError = false
+                                            },
+                                            placeholder = { Text("Enter 6-digit code") },
+                                            singleLine = true,
+                                            isError = resetError,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                        if (resetError) {
+                                            Text(
+                                                text = "Invalid verification code. Please try again.",
+                                                color = MaterialTheme.colorScheme.error,
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            onVerifyAndClear(
+                                                confirmInputText,
+                                                generatedResetCode,
+                                                {
+                                                    showClearConfirmDialog = false
+                                                    confirmInputText = ""
+                                                    generatedResetCode = ""
+                                                    resetError = false
+                                                },
+                                                {
+                                                    resetError = true
+                                                }
+                                            )
+                                        },
+                                        enabled = confirmInputText.isNotBlank(),
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                    ) {
+                                        Text("Verify & Reset")
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showClearConfirmDialog = false }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            )
                         }
                     } else {
                         Text(

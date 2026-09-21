@@ -334,4 +334,23 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             onComplete()
         }
     }
+
+    fun requestResetCycle(groupId: String, groupName: String, onCodeGenerated: (String) -> Unit) {
+        viewModelScope.launch {
+            val code = String.format("%06d", kotlin.random.Random.nextInt(100000, 999999))
+            repository.requestResetCycle(groupId, groupName, code)
+            onCodeGenerated(code)
+        }
+    }
+
+    fun verifyAndClearExpenses(groupId: String, enteredCode: String, expectedCode: String, onSuccess: () -> Unit, onError: () -> Unit) {
+        if (enteredCode.trim() == expectedCode.trim() && expectedCode.isNotBlank()) {
+            viewModelScope.launch {
+                repository.clearExpensesForGroup(groupId)
+                onSuccess()
+            }
+        } else {
+            onError()
+        }
+    }
 }
