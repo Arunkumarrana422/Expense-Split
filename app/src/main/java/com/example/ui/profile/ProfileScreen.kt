@@ -71,7 +71,7 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Profile & Settings") }
+                title = { Text("Profile & Settings", fontWeight = FontWeight.Bold) }
             )
         }
     ) { padding ->
@@ -153,7 +153,7 @@ fun ProfileScreen(
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     SettingRow(
                         icon = Icons.Default.CurrencyRupee,
@@ -161,11 +161,19 @@ fun ProfileScreen(
                         subtitle = currentCurrency,
                         onClick = { showCurrencyDialog = true }
                     )
+                    androidx.compose.material3.HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        thickness = 1.dp
+                    )
                     SettingRow(
                         icon = Icons.Default.DarkMode,
                         title = "Theme",
                         subtitle = currentTheme,
                         onClick = { showThemeDialog = true }
+                    )
+                    androidx.compose.material3.HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        thickness = 1.dp
                     )
                     SettingRow(
                         icon = Icons.Default.Lock,
