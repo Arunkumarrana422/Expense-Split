@@ -646,31 +646,36 @@ class ExpenseRepository(private val context: Context) {
             // Offline
         }
 
-        // Notification: Show in notifications and trigger phone notification
-        val notifId = UUID.randomUUID().toString()
-        val amountFormatted = amount.toDouble()
+        // Notification: Send to other group members (excluding the creator)
         val resolvedGroupName = groupName.ifBlank {
             database.groupDao().getGroupById(groupId)?.groupName ?: ""
         }
         val groupSuffix = if (resolvedGroupName.isNotBlank()) " in $resolvedGroupName" else ""
-        val notif = NotificationEntity(
-            id = notifId,
-            recipientUserId = "ALL", // broadcast to group
-            senderUserId = currentUserId,
-            senderUserName = currentUserName,
-            groupId = groupId,
-            groupName = resolvedGroupName,
-            title = "💸 New Expense Added",
-            message = "$currentUserName added '$title' (₹$amount)$groupSuffix.",
-            type = "INFO",
-            expenseTitle = title,
-            amount = amountFormatted,
-            timestamp = System.currentTimeMillis()
-        )
-        database.notificationDao().insertNotification(notif)
-        try {
-            dbRef.child("notifications").child(notifId).setValue(notif).await()
-        } catch (e: Exception) {}
+        val amountFormatted = amount.toDouble()
+        val members = database.groupDao().getMembersForGroupList(groupId)
+        members.forEach { member ->
+            if (member.userId.isNotBlank() && member.userId != currentUserId) {
+                val notifId = UUID.randomUUID().toString()
+                val notif = NotificationEntity(
+                    id = notifId,
+                    recipientUserId = member.userId,
+                    senderUserId = currentUserId,
+                    senderUserName = currentUserName,
+                    groupId = groupId,
+                    groupName = resolvedGroupName,
+                    title = "💸 New Expense Added",
+                    message = "$currentUserName added '$title' (₹$amount)$groupSuffix.",
+                    type = "INFO",
+                    expenseTitle = title,
+                    amount = amountFormatted,
+                    timestamp = System.currentTimeMillis()
+                )
+                database.notificationDao().insertNotification(notif)
+                try {
+                    dbRef.child("notifications").child(notifId).setValue(notif).await()
+                } catch (e: Exception) {}
+            }
+        }
     }
 
     suspend fun deleteExpense(expense: ExpenseEntity, groupName: String = "") {
@@ -802,30 +807,35 @@ class ExpenseRepository(private val context: Context) {
             dbRef.child("group_settlements").child(groupId).child(settlementId).setValue(settlement).await()
         } catch (e: Exception) {}
 
-        // Notification: Broadcast settlement
-        val notifId = UUID.randomUUID().toString()
+        // Notification: Send to other group members (excluding the creator)
         val resolvedGroupName = groupName.ifBlank {
             database.groupDao().getGroupById(groupId)?.groupName ?: ""
         }
         val groupSuffix = if (resolvedGroupName.isNotBlank()) " in $resolvedGroupName" else ""
-        val notif = NotificationEntity(
-            id = notifId,
-            recipientUserId = "ALL",
-            senderUserId = actualPayerId,
-            senderUserName = actualPayerName,
-            groupId = groupId,
-            groupName = resolvedGroupName,
-            title = "🤝 Payment Settled",
-            message = "$actualPayerName settled ₹$amount with $receiverName via $paymentMethod$groupSuffix.",
-            type = "INFO",
-            expenseTitle = "Settlement",
-            amount = amount.toDouble(),
-            timestamp = System.currentTimeMillis()
-        )
-        database.notificationDao().insertNotification(notif)
-        try {
-            dbRef.child("notifications").child(notifId).setValue(notif).await()
-        } catch (e: Exception) {}
+        val members = database.groupDao().getMembersForGroupList(groupId)
+        members.forEach { member ->
+            if (member.userId.isNotBlank() && member.userId != currentUserId) {
+                val notifId = UUID.randomUUID().toString()
+                val notif = NotificationEntity(
+                    id = notifId,
+                    recipientUserId = member.userId,
+                    senderUserId = actualPayerId,
+                    senderUserName = actualPayerName,
+                    groupId = groupId,
+                    groupName = resolvedGroupName,
+                    title = "🤝 Payment Settled",
+                    message = "$actualPayerName settled ₹$amount with $receiverName via $paymentMethod$groupSuffix.",
+                    type = "INFO",
+                    expenseTitle = "Settlement",
+                    amount = amount.toDouble(),
+                    timestamp = System.currentTimeMillis()
+                )
+                database.notificationDao().insertNotification(notif)
+                try {
+                    dbRef.child("notifications").child(notifId).setValue(notif).await()
+                } catch (e: Exception) {}
+            }
+        }
     }
 
     suspend fun deleteSettlement(settlement: SettlementEntity) {
@@ -933,6 +943,7 @@ class ExpenseRepository(private val context: Context) {
         database.expenseDao().deleteExpensesByGroupId(groupId)
         database.settlementDao().deleteSettlementsByGroupId(groupId)
         database.groupDao().deleteGroup(groupId)
+        database.notificationDao().deleteNotificationsForGroup(groupId)
         try {
             dbRef.child("groups").child(groupId).removeValue().await()
             dbRef.child("group_members").child(groupId).removeValue().await()
@@ -940,14 +951,35 @@ class ExpenseRepository(private val context: Context) {
             dbRef.child("group_expenses").child(groupId).removeValue().await()
             dbRef.child("settlements").child(groupId).removeValue().await()
             dbRef.child("group_settlements").child(groupId).removeValue().await()
+            dbRef.child("room_reset_codes").child(groupId).removeValue().await()
+
             if (group != null && group.roomCode.isNotBlank()) {
                 dbRef.child("room_codes").child(group.roomCode).removeValue().await()
             }
+
+            // Remove any room_codes entry where value matches groupId
+            val roomCodesSnap = dbRef.child("room_codes").get().await()
+            for (child in roomCodesSnap.children) {
+                val valStr = child.getValue(String::class.java)
+                if (valStr == groupId) {
+                    child.ref.removeValue().await()
+                }
+            }
+
             val membersSnap = dbRef.child("group_members").child(groupId).get().await()
             for (mChild in membersSnap.children) {
                 val uId = mChild.child("userId").getValue(String::class.java)
                 if (!uId.isNullOrBlank()) {
                     dbRef.child("user_groups").child(uId).child(groupId).removeValue().await()
+                }
+            }
+
+            // Clean up notifications in Firebase for this group
+            val notifsSnap = dbRef.child("notifications").get().await()
+            for (nChild in notifsSnap.children) {
+                val notif = nChild.getValue(NotificationEntity::class.java)
+                if (notif != null && notif.groupId == groupId) {
+                    nChild.ref.removeValue().await()
                 }
             }
         } catch (e: Exception) {}
@@ -957,22 +989,29 @@ class ExpenseRepository(private val context: Context) {
         val resolvedGroupName = groupName.ifBlank {
             database.groupDao().getGroupById(groupId)?.groupName ?: ""
         }
-        val notifId = UUID.randomUUID().toString()
-        val notif = NotificationEntity(
-            id = notifId,
-            recipientUserId = "ALL",
-            senderUserId = currentUserId,
-            senderUserName = currentUserName,
-            groupId = groupId,
-            groupName = resolvedGroupName,
-            title = "🔐 Reset Verification Code",
-            message = "Admin initiated a new cycle reset for '$resolvedGroupName'. Verification Code: $code. Enter this code to confirm reset.",
-            type = "RESET_VERIFICATION",
-            timestamp = System.currentTimeMillis()
-        )
-        database.notificationDao().insertNotification(notif)
+        val members = database.groupDao().getMembersForGroupList(groupId)
+        members.forEach { member ->
+            if (member.userId.isNotBlank()) {
+                val notifId = UUID.randomUUID().toString()
+                val notif = NotificationEntity(
+                    id = notifId,
+                    recipientUserId = member.userId,
+                    senderUserId = currentUserId,
+                    senderUserName = currentUserName,
+                    groupId = groupId,
+                    groupName = resolvedGroupName,
+                    title = "🔐 Reset Verification Code",
+                    message = "Admin initiated a new cycle reset for '$resolvedGroupName'. Verification Code: $code. Enter this code to confirm reset.",
+                    type = "RESET_VERIFICATION",
+                    timestamp = System.currentTimeMillis()
+                )
+                database.notificationDao().insertNotification(notif)
+                try {
+                    dbRef.child("notifications").child(notifId).setValue(notif).await()
+                } catch (e: Exception) {}
+            }
+        }
         try {
-            dbRef.child("notifications").child(notifId).setValue(notif).await()
             dbRef.child("room_reset_codes").child(groupId).setValue(code).await()
         } catch (e: Exception) {}
     }

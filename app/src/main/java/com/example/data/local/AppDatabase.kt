@@ -121,6 +121,9 @@ interface NotificationDao {
     @Query("DELETE FROM notifications WHERE groupId = :groupId AND type = :type")
     suspend fun deleteNotificationsForGroupAndType(groupId: String, type: String)
 
+    @Query("DELETE FROM notifications WHERE groupId = :groupId")
+    suspend fun deleteNotificationsForGroup(groupId: String)
+
     @Query("DELETE FROM notifications")
     suspend fun clearAll()
 }
