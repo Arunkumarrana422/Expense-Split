@@ -143,11 +143,13 @@ fun LoginScreen(
                         onLogin(email.trim(), password) { result ->
                             isLoading = false
                             if (result.isFailure) {
-                                val msg = result.exceptionOrNull()?.localizedMessage ?: ""
+                                val err = result.exceptionOrNull()
+                                val msg = ((err?.localizedMessage ?: "") + " " + (err?.message ?: "")).lowercase()
                                 errorMessage = when {
-                                    msg.contains("password", ignoreCase = true) || msg.contains("credential", ignoreCase = true) || msg.contains("auth", ignoreCase = true) || msg.contains("no user record", ignoreCase = true) || msg.contains("user-not-found", ignoreCase = true) || msg.contains("wrong-password", ignoreCase = true) -> "Incorrect email or password. Please check your credentials."
-                                    msg.contains("email", ignoreCase = true) -> "Invalid email address."
-                                    else -> "Login failed. Please check your details and try again."
+                                    msg.contains("user-not-found") || msg.contains("no user record") || msg.contains("there is no user record corresponding") -> "Create an Account first"
+                                    msg.contains("invalid-email") || msg.contains("malformed") -> "incorrect your email"
+                                    msg.contains("wrong-password") || msg.contains("invalid-credential") || msg.contains("password") -> "incorrect your password"
+                                    else -> "incorrect your email"
                                 }
                             }
                         }
