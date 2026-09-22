@@ -1153,4 +1153,32 @@ class ExpenseRepository(private val context: Context) {
             }
         } catch (e: Exception) {}
     }
+
+    suspend fun resetAllUserData(userId: String): Result<Unit> {
+        return try {
+            if (userId.isNotBlank()) {
+                try {
+                    dbRef.child("personal_expenses").child(userId).removeValue().await()
+                    dbRef.child("user_groups").child(userId).removeValue().await()
+                    dbRef.child("users").child(userId).removeValue().await()
+
+                    val notifsSnap = dbRef.child("notifications").get().await()
+                    for (nChild in notifsSnap.children) {
+                        val notif = nChild.getValue(NotificationEntity::class.java)
+                        if (notif != null && (notif.recipientUserId == userId || notif.recipientUserId == "ALL" || notif.senderUserId == userId)) {
+                            nChild.ref.removeValue().await()
+                        }
+                    }
+                } catch (e: Exception) {}
+            }
+            try {
+                database.clearAllTables()
+            } catch (e: Exception) {}
+
+            logout()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

@@ -354,4 +354,11 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             onError()
         }
     }
+
+    fun resetAllUserData(onComplete: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val result = repository.resetAllUserData(currentUserId)
+            onComplete(result)
+        }
+    }
 }

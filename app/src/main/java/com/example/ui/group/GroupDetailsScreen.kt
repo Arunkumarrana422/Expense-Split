@@ -859,18 +859,18 @@ fun BalancesTab(
                         )
                     }
 
-                    if (simplifiedDebts.isEmpty()) {
+                    if (simplifiedDebts.isEmpty() && expenses.isNotEmpty()) {
                         Text(
                             text = "🎉 Every member's balance is currently at ₹0. No pending debts in this room.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(4.dp))
-                        if (isCurrentUserAdmin) {
+                        if (isCurrentUserAdmin && members.size >= 2) {
                             val context = LocalContext.current
                             Button(
                                 onClick = {
-                                    if (members.isEmpty()) {
+                                    if (members.size < 2) {
                                         Toast.makeText(context, "No any room member", Toast.LENGTH_SHORT).show()
                                     } else {
                                         if (generatedResetCode.isBlank()) {
@@ -895,6 +895,12 @@ fun BalancesTab(
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("Start New Cycle (Reset Expenses to ₹0)", fontWeight = FontWeight.Bold)
                             }
+                        } else if (members.size < 2) {
+                            Text(
+                                text = "ℹ️ At least 2 members are required in the room to start a new cycle.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         } else {
                             Text(
                                 text = "ℹ️ Only the room admin can initiate a new cycle reset.",
@@ -902,64 +908,12 @@ fun BalancesTab(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-
-                        if (showClearConfirmDialog) {
-                            AlertDialog(
-                                onDismissRequest = { showClearConfirmDialog = false },
-                                title = { Text("Start New Cycle Verification") },
-                                text = {
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text("A 6-digit verification code has been sent to all members' notifications. Enter the code below to confirm reset:")
-                                        OutlinedTextField(
-                                            value = confirmInputText,
-                                            onValueChange = { 
-                                                confirmInputText = it
-                                                resetError = false
-                                            },
-                                            placeholder = { Text("Enter 6-digit code") },
-                                            singleLine = true,
-                                            isError = resetError,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                        if (resetError) {
-                                            Text(
-                                                text = "Invalid verification code. Please try again.",
-                                                color = MaterialTheme.colorScheme.error,
-                                                style = MaterialTheme.typography.bodySmall
-                                            )
-                                        }
-                                    }
-                                },
-                                confirmButton = {
-                                    Button(
-                                        onClick = {
-                                            onVerifyAndClear(
-                                                confirmInputText,
-                                                generatedResetCode,
-                                                {
-                                                    showClearConfirmDialog = false
-                                                    confirmInputText = ""
-                                                    generatedResetCode = ""
-                                                    resetError = false
-                                                },
-                                                {
-                                                    resetError = true
-                                                }
-                                            )
-                                        },
-                                        enabled = confirmInputText.isNotBlank(),
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                                    ) {
-                                        Text("Verify & Reset")
-                                    }
-                                },
-                                dismissButton = {
-                                    TextButton(onClick = { showClearConfirmDialog = false }) {
-                                        Text("Cancel")
-                                    }
-                                }
-                            )
-                        }
+                    } else if (simplifiedDebts.isEmpty() && expenses.isEmpty()) {
+                        Text(
+                            text = "🎉 Add expenses to start tracking and splitting bills in this room.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     } else {
                         Text(
                             text = "Tap 'Settle Up' to record payment and bring balances to ₹0 automatically:",
@@ -1002,14 +956,74 @@ fun BalancesTab(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                     ) {
-                                        Icon(imageVector = Icons.Default.Payment, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Text("Settle Up", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                        Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Text("Settle Up")
                                     }
                                 }
                             }
                         }
                     }
                 }
+            }
+        }
+
+        item {
+            if (showClearConfirmDialog) {
+                AlertDialog(
+                    onDismissRequest = { showClearConfirmDialog = false },
+                    title = { Text("Start New Cycle Verification") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("A 6-digit verification code has been sent to all members' notifications. Enter the code below to confirm reset:")
+                            OutlinedTextField(
+                                value = confirmInputText,
+                                onValueChange = { 
+                                    confirmInputText = it
+                                    resetError = false
+                                },
+                                placeholder = { Text("Enter 6-digit code") },
+                                singleLine = true,
+                                isError = resetError,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (resetError) {
+                                Text(
+                                    text = "Invalid verification code. Please try again.",
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                onVerifyAndClear(
+                                    confirmInputText,
+                                    generatedResetCode,
+                                    {
+                                        showClearConfirmDialog = false
+                                        confirmInputText = ""
+                                        generatedResetCode = ""
+                                        resetError = false
+                                    },
+                                    {
+                                        resetError = true
+                                    }
+                                )
+                            },
+                            enabled = confirmInputText.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Text("Verify & Reset")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showClearConfirmDialog = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
 

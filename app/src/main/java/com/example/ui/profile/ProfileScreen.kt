@@ -35,10 +35,14 @@ fun ProfileScreen(
     onUpdateProfile: (String, (Result<Unit>) -> Unit) -> Unit,
     onUpdateProfilePhoto: (String) -> Unit = {},
     onChangePasswordClick: () -> Unit = {},
+    onResetAllData: ((Result<Unit>) -> Unit) -> Unit = {},
     onLogout: () -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
+    var resetInputText by remember { mutableStateOf("") }
+    var isResetting by remember { mutableStateOf(false) }
     var isLoggingOut by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf(userName) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
@@ -180,6 +184,20 @@ fun ProfileScreen(
                         title = "Change Password",
                         subtitle = "Update account password",
                         onClick = onChangePasswordClick
+                    )
+                    androidx.compose.material3.HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+                        thickness = 1.dp
+                    )
+                    SettingRow(
+                        icon = Icons.Default.DeleteForever,
+                        title = "Reset All Data",
+                        subtitle = "Delete all personal & account data",
+                        onClick = {
+                            resetInputText = ""
+                            showResetDialog = true
+                        },
+                        tint = MaterialTheme.colorScheme.error
                     )
                 }
             }
@@ -479,10 +497,59 @@ fun ProfileScreen(
             }
         )
     }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!isResetting) showResetDialog = false },
+            title = { Text("Reset All Data", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("This will permanently delete all your personal expenses, notifications, room memberships, and account data from both this device and Firebase. This action cannot be undone.")
+                    Text("Type RESET below to confirm:", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                    OutlinedTextField(
+                        value = resetInputText,
+                        onValueChange = { resetInputText = it },
+                        placeholder = { Text("Type RESET") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isResetting = true
+                        onResetAllData { result ->
+                            isResetting = false
+                            showResetDialog = false
+                            if (result.isSuccess) {
+                                onLogout()
+                            } else {
+                                android.widget.Toast.makeText(context, "Failed to reset: ${result.exceptionOrNull()?.message}", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    enabled = !isResetting && resetInputText.trim().equals("RESET", ignoreCase = true)
+                ) {
+                    if (isResetting) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onError, strokeWidth = 2.dp)
+                    } else {
+                        Text("Reset All Data")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }, enabled = !isResetting) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
-fun SettingRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+fun SettingRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, tint: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.primary, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -496,9 +563,9 @@ fun SettingRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: Str
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(imageVector = icon, contentDescription = null, tint = tint)
             Column {
-                Text(text = title, fontWeight = FontWeight.Bold)
+                Text(text = title, fontWeight = FontWeight.Bold, color = tint)
                 Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

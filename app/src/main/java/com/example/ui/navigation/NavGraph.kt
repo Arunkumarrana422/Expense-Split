@@ -336,6 +336,9 @@ fun AppNavGraph(
                     onUpdateProfile = { newName, cb ->
                         viewModel.updateProfile(newName, cb)
                     },
+                    onResetAllData = { cb ->
+                        viewModel.resetAllUserData(cb)
+                    },
                     onLogout = {
                         viewModel.logout()
                         navController.navigate(Screen.Login.route) {

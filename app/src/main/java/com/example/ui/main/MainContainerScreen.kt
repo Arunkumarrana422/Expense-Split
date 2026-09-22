@@ -200,6 +200,9 @@ fun MainContainerScreen(
                         viewModel.updateProfilePhoto(newBase64)
                     },
                     onChangePasswordClick = onNavigateToChangePassword,
+                    onResetAllData = { cb ->
+                        viewModel.resetAllUserData(cb)
+                    },
                     onLogout = {
                         viewModel.logout()
                         onNavigateToLogin()
