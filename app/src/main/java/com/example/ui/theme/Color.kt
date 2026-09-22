@@ -2,23 +2,25 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val PrimaryIndigo = Color(0xFF4F46E5)
-val SecondaryTeal = Color(0xFF14B8A6)
-val AccentAmber = Color(0xFFFBBF24)
-val MainBackgroundLight = Color(0xFFF8FAFC)
-val CardBackgroundLight = Color(0xFFFFFFFF)
-val PrimaryTextLight = Color(0xFF0F172A)
-val SecondaryTextLight = Color(0xFF64748B)
-val SuccessLight = Color(0xFF16A34A)
-val ErrorLight = Color(0xFFDC2626)
-val BorderLight = Color(0xFFE2E8F0)
+// Colors from user's palette
+val PaletteVibrantPink = Color(0xFFFF5883)
+val PaletteLightPink = Color(0xFFFF91AD)
+val PalettePalePink = Color(0xFFFEC9D7)
+val PalettePaleMint = Color(0xFFB9EEE1)
+val PaletteSeafoam = Color(0xFF79D3BE)
+val PaletteVibrantTeal = Color(0xFF39B89A)
 
-val MainBackgroundDark = Color(0xFF0B1120)
-val CardBackgroundDark = Color(0xFF151F32)
-val PrimaryDark = Color(0xFF818CF8)
-val SecondaryDark = Color(0xFF2DD4BF)
-val PrimaryTextDark = Color(0xFFF8FAFC)
-val SecondaryTextDark = Color(0xFF94A3B8)
-val BorderDark = Color(0xFF293548)
-val SuccessDark = Color(0xFF4ADE80)
-val ErrorDark = Color(0xFFF87171)
+// Light Theme UI colors
+val MainBackgroundLight = Color(0xFFFFF9FA)
+val CardBackgroundLight = Color(0xFFFFFFFF)
+val PrimaryTextLight = Color(0xFF2A1C22)
+val SecondaryTextLight = Color(0xFF755C66)
+val BorderLight = Color(0xFFFCE4EC)
+
+// Dark Theme UI colors
+val MainBackgroundDark = Color(0xFF121917)
+val CardBackgroundDark = Color(0xFF1B2421)
+val PrimaryTextDark = Color(0xFFF3FAF7)
+val SecondaryTextDark = Color(0xFFA3B8B0)
+val BorderDark = Color(0xFF273833)
+

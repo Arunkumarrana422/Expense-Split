@@ -16,30 +16,30 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryDark,
-    secondary = SecondaryDark,
-    tertiary = AccentAmber,
+    primary = PaletteVibrantPink,
+    secondary = PaletteSeafoam,
+    tertiary = PalettePaleMint,
     background = MainBackgroundDark,
     surface = CardBackgroundDark,
     onPrimary = MainBackgroundDark,
     onSecondary = MainBackgroundDark,
     onBackground = PrimaryTextDark,
     onSurface = PrimaryTextDark,
-    error = ErrorDark,
+    error = PaletteVibrantPink,
     outline = BorderDark
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrimaryIndigo,
-    secondary = SecondaryTeal,
-    tertiary = AccentAmber,
+    primary = PaletteVibrantPink,
+    secondary = PaletteVibrantTeal,
+    tertiary = PaletteSeafoam,
     background = MainBackgroundLight,
     surface = CardBackgroundLight,
     onPrimary = CardBackgroundLight,
     onSecondary = CardBackgroundLight,
     onBackground = PrimaryTextLight,
     onSurface = PrimaryTextLight,
-    error = ErrorLight,
+    error = PaletteVibrantPink,
     outline = BorderLight
 )
 
