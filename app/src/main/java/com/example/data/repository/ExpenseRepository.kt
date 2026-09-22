@@ -460,16 +460,121 @@ class ExpenseRepository(private val context: Context) {
                 }
 
                 override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {}
-                override fun onChildRemoved(snapshot: DataSnapshot) {}
+                override fun onChildRemoved(snapshot: DataSnapshot) {
+                    val notif = snapshot.getValue(NotificationEntity::class.java)
+                    if (notif != null) {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            database.notificationDao().deleteNotification(notif.id)
+                        }
+                    }
+                }
                 override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
                 override fun onCancelled(error: DatabaseError) {}
             }
 
             activeNotificationListener = listener
             dbRef.child("notifications").addChildEventListener(listener)
+            startGroupDataListeners(userId)
         } catch (e: Exception) {
             // Non-fatal
         }
+    }
+
+    private val activeGroupExpenseListeners = mutableMapOf<String, ChildEventListener>()
+    private val activeGroupSettlementListeners = mutableMapOf<String, ChildEventListener>()
+
+    private fun startGroupDataListeners(userId: String) {
+        try {
+            dbRef.child("user_groups").child(userId).addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    val groupIds = snapshot.children.mapNotNull { it.key }
+                    val removedGroups = activeGroupExpenseListeners.keys.filter { !groupIds.contains(it) }
+                    removedGroups.forEach { gId ->
+                        activeGroupExpenseListeners[gId]?.let { dbRef.child("group_expenses").child(gId).removeEventListener(it) }
+                        activeGroupExpenseListeners.remove(gId)
+                        activeGroupSettlementListeners[gId]?.let { dbRef.child("group_settlements").child(gId).removeEventListener(it) }
+                        activeGroupSettlementListeners.remove(gId)
+                    }
+
+                    groupIds.forEach { gId ->
+                        if (!activeGroupExpenseListeners.containsKey(gId)) {
+                            val expListener = object : ChildEventListener {
+                                override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
+                                    val exp = snapshot.getValue(ExpenseEntity::class.java)
+                                    if (exp != null) {
+                                        CoroutineScope(Dispatchers.IO).launch {
+                                            database.expenseDao().insertExpense(exp)
+                                        }
+                                    }
+                                }
+                                override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {
+                                    val exp = snapshot.getValue(ExpenseEntity::class.java)
+                                    if (exp != null) {
+                                        CoroutineScope(Dispatchers.IO).launch {
+                                            database.expenseDao().insertExpense(exp)
+                                        }
+                                    }
+                                }
+                                override fun onChildRemoved(snapshot: DataSnapshot) {
+                                    val exp = snapshot.getValue(ExpenseEntity::class.java)
+                                    val expenseId = snapshot.key
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        if (!expenseId.isNullOrBlank()) {
+                                            database.expenseDao().deleteExpense(expenseId)
+                                        }
+                                        if (exp != null) {
+                                            database.expenseDao().deleteExpense(exp.expenseId)
+                                        }
+                                    }
+                                }
+                                override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
+                                override fun onCancelled(error: DatabaseError) {}
+                            }
+                            activeGroupExpenseListeners[gId] = expListener
+                            dbRef.child("group_expenses").child(gId).addChildEventListener(expListener)
+                        }
+
+                        if (!activeGroupSettlementListeners.containsKey(gId)) {
+                            val setListener = object : ChildEventListener {
+                                override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
+                                    val set = snapshot.getValue(SettlementEntity::class.java)
+                                    if (set != null) {
+                                        CoroutineScope(Dispatchers.IO).launch {
+                                            database.settlementDao().insertSettlement(set)
+                                        }
+                                    }
+                                }
+                                override fun onChildChanged(snapshot: DataSnapshot, previousChildName: String?) {
+                                    val set = snapshot.getValue(SettlementEntity::class.java)
+                                    if (set != null) {
+                                        CoroutineScope(Dispatchers.IO).launch {
+                                            database.settlementDao().insertSettlement(set)
+                                        }
+                                    }
+                                }
+                                override fun onChildRemoved(snapshot: DataSnapshot) {
+                                    val set = snapshot.getValue(SettlementEntity::class.java)
+                                    val settlementId = snapshot.key
+                                    CoroutineScope(Dispatchers.IO).launch {
+                                        if (!settlementId.isNullOrBlank()) {
+                                            database.settlementDao().deleteSettlement(settlementId)
+                                        }
+                                        if (set != null) {
+                                            database.settlementDao().deleteSettlement(set.settlementId)
+                                        }
+                                    }
+                                }
+                                override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {}
+                                override fun onCancelled(error: DatabaseError) {}
+                            }
+                            activeGroupSettlementListeners[gId] = setListener
+                            dbRef.child("group_settlements").child(gId).addChildEventListener(setListener)
+                        }
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        } catch (e: Exception) {}
     }
 
     private val _isDemoMode = MutableStateFlow(false)
@@ -1030,7 +1135,7 @@ class ExpenseRepository(private val context: Context) {
         database.expenseDao().deleteExpensesByGroupId(groupId)
         database.settlementDao().deleteSettlementsByGroupId(groupId)
         try {
-            database.notificationDao().deleteNotificationsForGroupAndType(groupId, "RESET_VERIFICATION")
+            database.notificationDao().deleteNotificationsForGroup(groupId)
         } catch (e: Exception) {}
         try {
             dbRef.child("expenses").child(groupId).removeValue().await()
@@ -1038,6 +1143,14 @@ class ExpenseRepository(private val context: Context) {
             dbRef.child("settlements").child(groupId).removeValue().await()
             dbRef.child("group_settlements").child(groupId).removeValue().await()
             dbRef.child("room_reset_codes").child(groupId).removeValue().await()
+
+            val notifsSnap = dbRef.child("notifications").get().await()
+            for (nChild in notifsSnap.children) {
+                val notif = nChild.getValue(NotificationEntity::class.java)
+                if (notif != null && notif.groupId == groupId) {
+                    nChild.ref.removeValue().await()
+                }
+            }
         } catch (e: Exception) {}
     }
 }
