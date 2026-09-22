@@ -1192,6 +1192,63 @@ class ExpenseRepository(private val context: Context) {
         }
     }
 
+    suspend fun checkRealtimeDatabaseData(): String {
+        val uid = currentUserId.ifBlank { getAuth().currentUser?.uid ?: "" }
+        if (uid.isBlank()) return ""
+
+        val summary = StringBuilder()
+        var totalItems = 0
+
+        try {
+            // Check personal expenses
+            val personalSnap = dbRef.child("personal_expenses").child(uid).get().await()
+            val personalCount = personalSnap.childrenCount
+            if (personalCount > 0) {
+                summary.append("• Personal Expenses: $personalCount items\n")
+                totalItems += personalCount.toInt()
+            }
+
+            // Check user groups
+            val userGroupsSnap = dbRef.child("user_groups").child(uid).get().await()
+            val groupIds = userGroupsSnap.children.mapNotNull { it.key }
+            if (groupIds.isNotEmpty()) {
+                summary.append("• Joined Groups: ${groupIds.size} groups\n")
+                totalItems += groupIds.size
+
+                var totalGroupExpenses = 0
+                var totalSettlements = 0
+                for (gId in groupIds) {
+                    val expSnap = dbRef.child("group_expenses").child(gId).get().await()
+                    totalGroupExpenses += expSnap.childrenCount.toInt()
+
+                    val setSnap = dbRef.child("group_settlements").child(gId).get().await()
+                    totalSettlements += setSnap.childrenCount.toInt()
+                }
+                if (totalGroupExpenses > 0) {
+                    summary.append("• Group Expenses: $totalGroupExpenses items\n")
+                    totalItems += totalGroupExpenses
+                }
+                if (totalSettlements > 0) {
+                    summary.append("• Group Settlements: $totalSettlements items\n")
+                    totalItems += totalSettlements
+                }
+            }
+
+            // Check notifications
+            val notifsSnap = dbRef.child("notifications").get().await()
+            val myNotifs = notifsSnap.children.mapNotNull { it.getValue(NotificationEntity::class.java) }
+                .count { it.recipientUserId == uid || it.recipientUserId == "ALL" || it.recipientUserId.isBlank() }
+            if (myNotifs > 0) {
+                summary.append("• Notifications: $myNotifs items\n")
+                totalItems += myNotifs
+            }
+
+        } catch (e: Exception) {}
+
+        if (totalItems == 0) return ""
+        return summary.toString().trim()
+    }
+
     suspend fun deleteAccount(userId: String): Result<Unit> {
         return try {
             if (userId.isNotBlank()) {

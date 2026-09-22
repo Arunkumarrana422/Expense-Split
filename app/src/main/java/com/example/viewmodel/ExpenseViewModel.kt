@@ -39,6 +39,13 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
+    private val _databaseStatusMessage = MutableStateFlow<String?>(null)
+    val databaseStatusMessage: StateFlow<String?> = _databaseStatusMessage.asStateFlow()
+
+    fun clearDatabaseStatus() {
+        _databaseStatusMessage.value = null
+    }
+
     fun login(email: String, password: String, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             _isSyncing.value = true
@@ -74,14 +81,16 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
 
     fun refreshData(onComplete: (() -> Unit)? = null) {
         val uid = repository.currentUserId
-        if (uid.isNotBlank()) {
-            viewModelScope.launch {
-                _isSyncing.value = true
+        viewModelScope.launch {
+            _isSyncing.value = true
+            if (uid.isNotBlank()) {
                 repository.syncDataFromFirebase(uid)
-                _isSyncing.value = false
-                onComplete?.invoke()
+                val status = repository.checkRealtimeDatabaseData()
+                _databaseStatusMessage.value = status
+            } else {
+                _databaseStatusMessage.value = ""
             }
-        } else {
+            _isSyncing.value = false
             onComplete?.invoke()
         }
     }
