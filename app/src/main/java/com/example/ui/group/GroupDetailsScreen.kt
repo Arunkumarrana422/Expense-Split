@@ -861,7 +861,7 @@ fun BalancesTab(
 
                     if (simplifiedDebts.isEmpty() && expenses.isNotEmpty()) {
                         Text(
-                            text = "🎉 Every member's balance is currently at ₹0. No pending debts in this room.",
+                            text = "Every member's balance is currently at ₹0. No pending debts in this room.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -897,20 +897,20 @@ fun BalancesTab(
                             }
                         } else if (members.size < 2) {
                             Text(
-                                text = "ℹ️ At least 2 members are required in the room to start a new cycle.",
+                                text = "At least 2 members are required in the room to start a new cycle.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
                             Text(
-                                text = "ℹ️ Only the room admin can initiate a new cycle reset.",
+                                text = "Only the room admin can initiate a new cycle reset.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     } else if (simplifiedDebts.isEmpty() && expenses.isEmpty()) {
                         Text(
-                            text = "🎉 Add expenses to start tracking and splitting bills in this room.",
+                            text = "Add expenses to start tracking and splitting bills in this room.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
