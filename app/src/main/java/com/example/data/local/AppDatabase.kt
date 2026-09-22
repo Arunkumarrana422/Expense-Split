@@ -105,6 +105,9 @@ interface PersonalExpenseDao {
 
     @Query("UPDATE personal_expenses SET userId = :newUserId WHERE userId = :oldUserId")
     suspend fun updatePersonalExpenseUserId(oldUserId: String, newUserId: String)
+
+    @Query("SELECT * FROM personal_expenses WHERE userId = :userId")
+    suspend fun getAllPersonalExpensesForUser(userId: String): List<PersonalExpenseEntity>
 }
 
 @Dao

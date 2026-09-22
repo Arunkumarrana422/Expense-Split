@@ -405,6 +405,10 @@ class ExpenseRepository(private val context: Context) {
                         database.personalExpenseDao().insertPersonalExpense(personal)
                     }
                 }
+                val localPersonal = database.personalExpenseDao().getAllPersonalExpensesForUser(userId)
+                for (localExp in localPersonal) {
+                    ref.child("personal_expenses").child(userId).child(localExp.expenseId).setValue(localExp).await()
+                }
             } catch (e: Exception) {}
 
             // 3. Sync Notifications
@@ -955,26 +959,32 @@ class ExpenseRepository(private val context: Context) {
     }
 
     suspend fun addPersonalExpense(title: String, amount: Long, category: String, notes: String) {
+        val uid = currentUserId.ifBlank { getAuth().currentUser?.uid ?: "" }
         val id = UUID.randomUUID().toString()
         val expense = PersonalExpenseEntity(
             expenseId = id,
-            userId = currentUserId,
+            userId = uid.ifBlank { "local_user" },
             title = title,
             amount = amount,
             category = category,
             notes = notes
         )
         database.personalExpenseDao().insertPersonalExpense(expense)
-        try {
-            dbRef.child("personal_expenses").child(currentUserId).child(id).setValue(expense).await()
-        } catch (e: Exception) {}
+        if (uid.isNotBlank()) {
+            try {
+                dbRef.child("personal_expenses").child(uid).child(id).setValue(expense).await()
+            } catch (e: Exception) {}
+        }
     }
 
     suspend fun deletePersonalExpense(id: String) {
+        val uid = currentUserId.ifBlank { getAuth().currentUser?.uid ?: "" }
         database.personalExpenseDao().deletePersonalExpense(id)
-        try {
-            dbRef.child("personal_expenses").child(currentUserId).child(id).removeValue().await()
-        } catch (e: Exception) {}
+        if (uid.isNotBlank()) {
+            try {
+                dbRef.child("personal_expenses").child(uid).child(id).removeValue().await()
+            } catch (e: Exception) {}
+        }
     }
 
     suspend fun updateGroup(groupId: String, name: String, description: String, currency: String, maxMembers: Int) {
