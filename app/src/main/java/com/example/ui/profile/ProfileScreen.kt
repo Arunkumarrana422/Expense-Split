@@ -35,14 +35,16 @@ fun ProfileScreen(
     onUpdateProfile: (String, (Result<Unit>) -> Unit) -> Unit,
     onUpdateProfilePhoto: (String) -> Unit = {},
     onChangePasswordClick: () -> Unit = {},
-    onResetAllData: ((Result<Unit>) -> Unit) -> Unit = {},
+    onDeleteAccount: ((Result<Unit>) -> Unit) -> Unit = {},
     onLogout: () -> Unit
 ) {
     var showEditDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
-    var showResetDialog by remember { mutableStateOf(false) }
-    var resetInputText by remember { mutableStateOf("") }
-    var isResetting by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var isDeletingAccount by remember { mutableStateOf(false) }
+    var cb1 by remember { mutableStateOf(false) }
+    var cb2 by remember { mutableStateOf(false) }
+    var cb3 by remember { mutableStateOf(false) }
     var isLoggingOut by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf(userName) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
@@ -191,11 +193,13 @@ fun ProfileScreen(
                     )
                     SettingRow(
                         icon = Icons.Default.DeleteForever,
-                        title = "Reset All Data",
-                        subtitle = "Delete all personal & account data",
+                        title = "Delete Account",
+                        subtitle = "Permanently delete account and all data",
                         onClick = {
-                            resetInputText = ""
-                            showResetDialog = true
+                            cb1 = false
+                            cb2 = false
+                            cb3 = false
+                            showDeleteAccountDialog = true
                         },
                         tint = MaterialTheme.colorScheme.error
                     )
@@ -498,49 +502,76 @@ fun ProfileScreen(
         )
     }
 
-    if (showResetDialog) {
+    if (showDeleteAccountDialog) {
         AlertDialog(
-            onDismissRequest = { if (!isResetting) showResetDialog = false },
-            title = { Text("Reset All Data", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
+            onDismissRequest = { if (!isDeletingAccount) showDeleteAccountDialog = false },
+            title = { Text("Delete Account", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("This will permanently delete all your personal expenses, notifications, room memberships, and account data from both this device and Firebase. This action cannot be undone.")
-                    Text("Type RESET below to confirm:", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
-                    OutlinedTextField(
-                        value = resetInputText,
-                        onValueChange = { resetInputText = it },
-                        placeholder = { Text("Type RESET") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Text("Deleting your account will permanently remove your profile, personal expenses, group memberships, and notifications from Firebase and this device. You will lose access immediately and cannot recover this account.")
+                    Text("Please confirm all requirements below:", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { cb1 = !cb1 }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Checkbox(checked = cb1, onCheckedChange = { cb1 = it })
+                        Text("I understand my account and personal data will be permanently deleted.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { cb2 = !cb2 }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Checkbox(checked = cb2, onCheckedChange = { cb2 = it })
+                        Text("I understand I will lose access to all rooms and expenses.", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { cb3 = !cb3 }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Checkbox(checked = cb3, onCheckedChange = { cb3 = it })
+                        Text("I understand this action is irreversible and cannot be undone.", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
-                        isResetting = true
-                        onResetAllData { result ->
-                            isResetting = false
-                            showResetDialog = false
+                        isDeletingAccount = true
+                        onDeleteAccount { result ->
+                            isDeletingAccount = false
+                            showDeleteAccountDialog = false
                             if (result.isSuccess) {
                                 onLogout()
                             } else {
-                                android.widget.Toast.makeText(context, "Failed to reset: ${result.exceptionOrNull()?.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(context, "Failed to delete account: ${result.exceptionOrNull()?.message}", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                    enabled = !isResetting && resetInputText.trim().equals("RESET", ignoreCase = true)
+                    enabled = !isDeletingAccount && cb1 && cb2 && cb3
                 ) {
-                    if (isResetting) {
+                    if (isDeletingAccount) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), color = MaterialTheme.colorScheme.onError, strokeWidth = 2.dp)
                     } else {
-                        Text("Reset All Data")
+                        Text("Delete Account")
                     }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showResetDialog = false }, enabled = !isResetting) {
+                TextButton(onClick = { showDeleteAccountDialog = false }, enabled = !isDeletingAccount) {
                     Text("Cancel")
                 }
             }

@@ -361,4 +361,11 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
             onComplete(result)
         }
     }
+
+    fun deleteAccount(onComplete: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            val result = repository.deleteAccount(currentUserId)
+            onComplete(result)
+        }
+    }
 }

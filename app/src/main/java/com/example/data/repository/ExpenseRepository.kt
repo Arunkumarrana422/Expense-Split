@@ -1181,4 +1181,8 @@ class ExpenseRepository(private val context: Context) {
             Result.failure(e)
         }
     }
+
+    suspend fun deleteAccount(userId: String): Result<Unit> {
+        return resetAllUserData(userId)
+    }
 }

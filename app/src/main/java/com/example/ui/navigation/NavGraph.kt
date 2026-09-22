@@ -336,8 +336,8 @@ fun AppNavGraph(
                     onUpdateProfile = { newName, cb ->
                         viewModel.updateProfile(newName, cb)
                     },
-                    onResetAllData = { cb ->
-                        viewModel.resetAllUserData(cb)
+                    onDeleteAccount = { cb ->
+                        viewModel.deleteAccount(cb)
                     },
                     onLogout = {
                         viewModel.logout()
