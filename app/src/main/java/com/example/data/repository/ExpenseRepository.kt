@@ -1183,6 +1183,50 @@ class ExpenseRepository(private val context: Context) {
     }
 
     suspend fun deleteAccount(userId: String): Result<Unit> {
-        return resetAllUserData(userId)
+        return try {
+            if (userId.isNotBlank()) {
+                try {
+                    // 1. Remove user from all group_members across all groups
+                    val groupMembersSnap = dbRef.child("group_members").get().await()
+                    for (groupChild in groupMembersSnap.children) {
+                        for (memberChild in groupChild.children) {
+                            val uId = memberChild.child("userId").getValue(String::class.java)
+                            if (uId == userId) {
+                                memberChild.ref.removeValue().await()
+                            }
+                        }
+                    }
+
+                    // 2. Remove user data nodes from Firebase
+                    dbRef.child("personal_expenses").child(userId).removeValue().await()
+                    dbRef.child("user_groups").child(userId).removeValue().await()
+                    dbRef.child("users").child(userId).removeValue().await()
+
+                    // 3. Remove notifications related to user
+                    val notifsSnap = dbRef.child("notifications").get().await()
+                    for (nChild in notifsSnap.children) {
+                        val notif = nChild.getValue(NotificationEntity::class.java)
+                        if (notif != null && (notif.recipientUserId == userId || notif.recipientUserId == "ALL" || notif.senderUserId == userId)) {
+                            nChild.ref.removeValue().await()
+                        }
+                    }
+                } catch (e: Exception) {}
+            }
+
+            // 4. Delete Firebase Auth user
+            try {
+                FirebaseAuth.getInstance().currentUser?.delete()?.await()
+            } catch (e: Exception) {}
+
+            // 5. Clear local database tables
+            try {
+                database.clearAllTables()
+            } catch (e: Exception) {}
+
+            logout()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
