@@ -17,36 +17,36 @@ import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
     primary = PaletteVibrantPink,
-    secondary = PaletteSeafoam,
-    tertiary = PalettePaleMint,
+    secondary = PaletteVibrantTeal,
+    tertiary = TertiaryAmber,
     background = MainBackgroundDark,
     surface = CardBackgroundDark,
     onPrimary = MainBackgroundDark,
     onSecondary = MainBackgroundDark,
     onBackground = PrimaryTextDark,
     onSurface = PrimaryTextDark,
-    error = PaletteVibrantPink,
+    error = AccentCoral,
     outline = BorderDark
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = PaletteVibrantPink,
     secondary = PaletteVibrantTeal,
-    tertiary = PaletteSeafoam,
+    tertiary = TertiaryAmber,
     background = MainBackgroundLight,
     surface = CardBackgroundLight,
     onPrimary = CardBackgroundLight,
     onSecondary = CardBackgroundLight,
     onBackground = PrimaryTextLight,
     onSurface = PrimaryTextLight,
-    error = PaletteVibrantPink,
+    error = AccentCoral,
     outline = BorderLight
 )
 
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
