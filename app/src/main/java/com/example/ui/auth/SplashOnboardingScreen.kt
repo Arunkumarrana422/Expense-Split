@@ -26,11 +26,9 @@ import kotlinx.coroutines.launch
 @Composable
 fun SplashOnboardingScreen(
     onGetStarted: () -> Unit,
-    onLogin: () -> Unit,
-    onGoogleSignIn: (String) -> Unit
+    onLogin: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -128,45 +126,6 @@ fun SplashOnboardingScreen(
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("I already have an account", fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                }
-
-                OutlinedButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            try {
-                                val credentialManager = androidx.credentials.CredentialManager.create(context)
-                                val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
-                                    .setServerClientId("52643587669-cq8stjd8g4vrqj2tq9qjb2n668bkng41.apps.googleusercontent.com")
-                                    .setFilterByAuthorizedAccounts(false)
-                                    .build()
-
-                                val request = androidx.credentials.GetCredentialRequest.Builder()
-                                    .addCredentialOption(googleIdOption)
-                                    .build()
-
-                                val result = credentialManager.getCredential(context, request)
-                                val credential = result.credential
-                                if (credential is androidx.credentials.CustomCredential &&
-                                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
-                                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
-                                    val googleIdToken = googleIdTokenCredential.idToken
-                                    onGoogleSignIn(googleIdToken)
-                                } else {
-                                    android.widget.Toast.makeText(context, "Invalid credential type", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            } catch (e: Exception) {
-                                android.widget.Toast.makeText(context, "Google Sign-In cancelled or failed", android.widget.Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onBackground),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
-                ) {
-                    Text("Continue with Google", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
