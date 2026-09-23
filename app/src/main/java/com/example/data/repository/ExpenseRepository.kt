@@ -169,6 +169,38 @@ class ExpenseRepository(private val context: Context) {
         }
     }
 
+    suspend fun signInWithGoogleCredential(idToken: String): Result<Unit> {
+        return try {
+            val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+            val authInstance = getAuth()
+            val authResult = authInstance.signInWithCredential(credential).await()
+            val user = authResult.user
+            val uid = user?.uid
+            if (uid != null) {
+                try {
+                    val userRef = dbRef.child("users").child(uid)
+                    val userSnap = userRef.get().await()
+                    if (!userSnap.exists()) {
+                        val name = user?.displayName ?: "Google User"
+                        val email = user?.email ?: ""
+                        val userMap = mapOf(
+                            "userId" to uid,
+                            "fullName" to name,
+                            "email" to email,
+                            "profileImage" to (user?.photoUrl?.toString() ?: "")
+                        )
+                        userRef.setValue(userMap).await()
+                    }
+                } catch (e: Exception) {}
+                userNameFlow.value = currentUserName
+                syncDataFromFirebase(uid)
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun register(fullName: String, email: String, password: String): Result<Unit> {
         return try {
             val authInstance = getAuth()

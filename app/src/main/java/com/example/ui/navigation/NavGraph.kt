@@ -97,9 +97,21 @@ fun AppNavGraph(
         modifier = Modifier.fillMaxSize()
     ) {
         composable(Screen.Splash.route) {
+            val context = androidx.compose.ui.platform.LocalContext.current
             SplashOnboardingScreen(
                 onGetStarted = { navController.navigate(Screen.Register.route) },
-                onLogin = { navController.navigate(Screen.Login.route) }
+                onLogin = { navController.navigate(Screen.Login.route) },
+                onGoogleSignIn = { idToken ->
+                    viewModel.signInWithGoogle(idToken) { result ->
+                        if (result.isSuccess) {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(Screen.Splash.route) { inclusive = true }
+                            }
+                        } else {
+                            android.widget.Toast.makeText(context, "Google Sign-In failed: ${result.exceptionOrNull()?.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
             )
         }
         composable(Screen.Login.route) {

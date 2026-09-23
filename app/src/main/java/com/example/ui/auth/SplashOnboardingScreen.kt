@@ -16,13 +16,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.CustomCredential
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 @Composable
 fun SplashOnboardingScreen(
     onGetStarted: () -> Unit,
-    onLogin: () -> Unit
+    onLogin: () -> Unit,
+    onGoogleSignIn: (String) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -124,8 +132,32 @@ fun SplashOnboardingScreen(
 
                 OutlinedButton(
                     onClick = {
-                        android.widget.Toast.makeText(context, "Please configure Google Sign-In in Firebase Console", android.widget.Toast.LENGTH_LONG).show()
-                        onLogin()
+                        coroutineScope.launch {
+                            try {
+                                val credentialManager = androidx.credentials.CredentialManager.create(context)
+                                val googleIdOption = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
+                                    .setServerClientId("52643587669-cq8stjd8g4vrqj2tq9qjb2n668bkng41.apps.googleusercontent.com")
+                                    .setFilterByAuthorizedAccounts(false)
+                                    .build()
+
+                                val request = androidx.credentials.GetCredentialRequest.Builder()
+                                    .addCredentialOption(googleIdOption)
+                                    .build()
+
+                                val result = credentialManager.getCredential(context, request)
+                                val credential = result.credential
+                                if (credential is androidx.credentials.CustomCredential &&
+                                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+                                    val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                                    val googleIdToken = googleIdTokenCredential.idToken
+                                    onGoogleSignIn(googleIdToken)
+                                } else {
+                                    android.widget.Toast.makeText(context, "Invalid credential type", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(context, "Google Sign-In cancelled or failed", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     },
                     modifier = Modifier
                         .fillMaxWidth()

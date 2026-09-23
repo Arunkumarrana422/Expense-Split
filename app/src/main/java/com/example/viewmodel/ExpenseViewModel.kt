@@ -63,6 +63,18 @@ class ExpenseViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    fun signInWithGoogle(idToken: String, onResult: (Result<Unit>) -> Unit) {
+        viewModelScope.launch {
+            _isSyncing.value = true
+            val res = repository.signInWithGoogleCredential(idToken)
+            if (res.isSuccess) {
+                loadUserData()
+            }
+            _isSyncing.value = false
+            onResult(res)
+        }
+    }
+
     fun register(fullName: String, email: String, password: String, onResult: (Result<Unit>) -> Unit) {
         viewModelScope.launch {
             _isSyncing.value = true
