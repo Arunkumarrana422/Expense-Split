@@ -14,20 +14,35 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.ui.common.NoInternetScreen
 import com.example.ui.navigation.AppNavGraph
 import com.example.ui.theme.MyApplicationTheme
 import com.example.util.NetworkMonitor
 import com.example.util.NotificationHelper
 import com.example.viewmodel.ExpenseViewModel
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private val viewModel: ExpenseViewModel by viewModels()
@@ -77,39 +92,94 @@ class MainActivity : ComponentActivity() {
                 initialValue = networkMonitor.isCurrentlyConnected()
             )
             var wasOffline by remember { mutableStateOf(!networkMonitor.isCurrentlyConnected()) }
+            var showConnectedMessage by remember { mutableStateOf(false) }
 
             // Automatic detection and reload when connection state changes during runtime
             LaunchedEffect(isOnline) {
                 if (!isOnline) {
                     wasOffline = true
+                    showConnectedMessage = false
                 } else if (wasOffline) {
-                    // Connection restored: auto-refresh backend data
-                    viewModel.refreshData()
                     wasOffline = false
+                    showConnectedMessage = true
+                    viewModel.refreshData()
+                    delay(3000)
+                    showConnectedMessage = false
                 }
             }
 
             MyApplicationTheme(darkTheme = darkTheme) {
-                AnimatedContent(
-                    targetState = isOnline,
-                    transitionSpec = {
-                        fadeIn() togetherWith fadeOut()
-                    },
-                    label = "OnlineStateTransition"
-                ) { online ->
-                    if (online) {
-                        AppNavGraph(
-                            viewModel = viewModel,
-                            initialTargetScreen = initialDestination.value
-                        )
-                    } else {
-                        NoInternetScreen(
-                            onRetry = {
-                                if (networkMonitor.isCurrentlyConnected()) {
-                                    viewModel.refreshData()
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .let {
+                            if (!isOnline) {
+                                it.pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            event.changes.forEach { change -> change.consume() }
+                                        }
+                                    }
+                                }
+                            } else {
+                                it
+                            }
+                        }
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        if (!isOnline) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .zIndex(100f),
+                                color = Color(0xFFD32F2F),
+                                contentColor = Color.White
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+                                ) {
+                                    Text(
+                                        text = "No internet connection. Actions are disabled.",
+                                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
-                        )
+                        } else if (showConnectedMessage) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .zIndex(100f),
+                                color = Color(0xFF388E3C),
+                                contentColor = Color.White
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+                                ) {
+                                    Text(
+                                        text = "Internet connected. Loading data...",
+                                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            AppNavGraph(
+                                viewModel = viewModel,
+                                initialTargetScreen = initialDestination.value
+                            )
+                        }
                     }
                 }
             }
