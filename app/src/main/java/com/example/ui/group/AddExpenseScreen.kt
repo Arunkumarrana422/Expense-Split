@@ -27,6 +27,7 @@ fun AddExpenseScreen(
     var notes by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var categoryExpanded by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf("") }
 
     val categories = listOf(
         "Food",
@@ -124,14 +125,28 @@ fun AddExpenseScreen(
                 shape = RoundedCornerShape(14.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            if (errorMessage.isNotBlank()) {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             Button(
                 onClick = {
-                    val amt = (amountStr.toDoubleOrNull() ?: 0.0).toLong()
-                    if (title.isNotBlank() && amt > 0) {
+                    val amt = amountStr.toDoubleOrNull() ?: 0.0
+                    if (title.isBlank()) {
+                        errorMessage = "Please fill Expense Title"
+                    } else if (amountStr.isBlank() || amt <= 0.0) {
+                        errorMessage = "Please fill Amount"
+                    } else {
+                        errorMessage = ""
                         isLoading = true
-                        onSave(title, amt, "INR", category, splitMethod)
+                        onSave(title, amt.toLong(), "INR", category, splitMethod)
                     }
                 },
                 modifier = Modifier
