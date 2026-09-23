@@ -10,17 +10,19 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
@@ -127,58 +129,43 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                 ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        if (!isOnline) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .zIndex(100f),
-                                color = Color(0xFFD32F2F),
-                                contentColor = Color.White
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = "No internet connection. Actions are disabled.",
-                                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        } else if (showConnectedMessage) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .zIndex(100f),
-                                color = Color(0xFF388E3C),
-                                contentColor = Color.White
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = "Internet connected. Loading data...",
-                                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                        }
+                    AppNavGraph(
+                        viewModel = viewModel,
+                        initialTargetScreen = initialDestination.value
+                    )
 
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            AppNavGraph(
-                                viewModel = viewModel,
-                                initialTargetScreen = initialDestination.value
-                            )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        AnimatedVisibility(
+                            visible = !isOnline || showConnectedMessage,
+                            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut()
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(28.dp),
+                                color = if (!isOnline) Color(0xFFD32F2F) else Color(0xFF388E3C),
+                                contentColor = Color.White,
+                                shadowElevation = 8.dp,
+                                modifier = Modifier
+                                    .padding(top = 24.dp)
+                                    .zIndex(200f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = if (!isOnline) "No internet connection. Actions are disabled." else "Internet connected. Loading data...",
+                                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                     }
                 }
